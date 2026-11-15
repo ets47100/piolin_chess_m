@@ -55,7 +55,6 @@
         <span id="clock-bottom" class="chess-clock" hidden>10:00</span>
       </div>
 
-      <!-- FLECHAS DE AVANCE VISIBLES JUSTO DEBAJO DEL TABLERO -->
       <div class="move-controls top-move-controls">
         <button id="first" aria-label="Ir al inicio">|‹</button>
         <button id="prev" aria-label="Jugada anterior">‹</button>
@@ -73,7 +72,6 @@
     </div>
 
     <aside class="analysis-column">
-      <!-- PANEL DE MOTOR Y CONSEJOS DE GRAN MAESTRO -->
       <section class="engine-card panel">
         <div class="section-heading">
           <span class="eyebrow">MOTOR Y ENTRENADOR GM</span>
@@ -94,12 +92,10 @@
           <span id="engine-status" role="status">Preparando motor…</span>
         </div>
 
-        <!-- CONSEJO EN VIVO DEL GRAN MAESTRO -->
         <div id="gm-advice-box" class="gm-advice">
           <strong>🎓 Consejo de GM:</strong> <span id="gm-advice-text">Activa «Analizar» o pulsa «Revisar Fallos» tras cargar una partida para ver tus imprecisiones, errores graves y planes recomendados.</span>
         </div>
 
-        <!-- FILTRO DE FALLOS DE LA PARTIDA -->
         <div id="mistakes-panel" class="mistakes-panel" hidden>
           <div class="mistakes-header">
             <strong id="mistakes-summary">Fallos detectados: 0</strong>
@@ -149,9 +145,12 @@
     <button id="backup-import" class="text-button">Restaurar copia</button>
     <button id="help-open" class="text-button">Ayuda</button>
   </section>
+
+  <!-- ELEMENTOS REQUERIDOS POR APP.JS -->
+  <p id="origin-warning" class="warning" hidden>Abre la aplicación mediante el arrancador local.</p>
+  <p class="prototype-note">Piolín Chess · Stockfish 19 · <a href="licencias.html">Licencias y código fuente</a></p>
 </main>
 
-<!-- DIÁLOGO: JUGAR CONTRA LA MÁQUINA -->
 <dialog id="bot-dialog">
   <form method="dialog" class="dialog-header">
     <h2>🤖 Jugar contra Piolín (Stockfish)</h2>
@@ -190,7 +189,6 @@
   </div>
 </dialog>
 
-<!-- DIÁLOGO: IMPORTAR DESDE LICHESS O CHESS.COM -->
 <dialog id="online-dialog">
   <form method="dialog" class="dialog-header">
     <h2>☁️ Importar de Lichess o Chess.com</h2>
@@ -230,7 +228,6 @@
   <div id="online-results" class="online-results"></div>
 </dialog>
 
-<!-- DIÁLOGO PGN MANUAL -->
 <dialog id="import-dialog">
   <form method="dialog" class="dialog-header">
     <h2>Cargar PGN o FEN</h2>
@@ -271,7 +268,7 @@
   </form>
   <ol>
     <li><strong>Jugar contra la máquina:</strong> Pulsa «🤖 Jugar vs Máquina», elige tu color, el tiempo y el nivel (1 a 5). La máquina responderá automáticamente a cada jugada tuya.</li>
-    <li><strong>Importar de Lichess / Chess.com:</strong> Pulsa «☁️ Importar Online», escribe tu usuario, elige 50, 100 o 200 partidas y el ritmo. Podrás abrir cualquiera o guardarlas todas en tu Biblioteca.</li>
+    <li><strong>Importar de Lichess / Chess.com:</strong> Pulsa «☁️ Importar Online», escribe tu usuario, elige 50, 100 o 200 partidas y el ritmo.</li>
     <li><strong>Consejos de GM y Fallos:</strong> En cualquier partida, pulsa «🎓 Revisar Fallos» para que Stockfish detecte imprecisiones (?!), errores (?) y errores graves (??) con consejos de Gran Maestro.</li>
   </ol>
 </dialog>
