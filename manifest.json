@@ -10,9 +10,9 @@
   "theme_color": "#262421",
   "icons": [
     {
-      "src": "favicon.svg",
+      "src": "piolin.png",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
