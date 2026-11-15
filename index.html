@@ -14,14 +14,11 @@
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="./" aria-label="piolin chess inicio">
-    <img src="piolin.png" alt="Piolín" class="brand-logo" onerror="this.outerHTML='<span class=\'brand-mark\'>🐤</span>'">
-    <span>piolin<span class="brand-light">_chess</span><small>AJEDREZ DEL CLUB · EN TU DISPOSITIVO</small></span>
-  </a>
   <nav aria-label="Principal">
     <button id="analysis-tab" class="nav-button active">Tablero</button>
     <button id="online-open" class="nav-button">Lichess / Chess.com</button>
     <button id="library-open" class="nav-button">Biblioteca <span id="library-count" class="count">0</span></button>
+<span style="font-size: 12px; opacity: 0.7; margin-left: 8px;">v3.0.0</span>
   </nav>
 </header>
 
@@ -151,6 +148,11 @@
   <p class="prototype-note">Piolín Chess · Stockfish 19 · <a href="licencias.html">Licencias y código fuente</a></p>
 </main>
 
+  <a class="brand" href="./" aria-label="piolin chess inicio">
+    <img src="piolin.png" alt="Piolín" class="brand-logo" onerror="this.outerHTML='<span class=\'brand-mark\'>🐤</span>'">
+    <span>piolin<span class="brand-light">_chess</span><small>AJEDREZ DEL CLUB · EN TU DISPOSITIVO</small></span>
+  </a>
+  
 <dialog id="bot-dialog">
   <form method="dialog" class="dialog-header">
     <h2>🤖 Jugar contra Piolín (Stockfish)</h2>
