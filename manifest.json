@@ -1,0 +1,19 @@
+{
+  "name": "Piolín Chess · Análisis del Club",
+  "short_name": "Piolín Chess",
+  "description": "Tablero de análisis local, biblioteca PGN/FEN y motor Stockfish en tu dispositivo.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#262421",
+  "theme_color": "#262421",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
