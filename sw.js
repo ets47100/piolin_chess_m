@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-const CACHE_NAME = 'piolin-chess-pwa-v2';
+const CACHE_NAME = 'piolin-chess-pwa-v3';
 const ASSETS = [
   './',
   './index.html',
