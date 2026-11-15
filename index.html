@@ -1,33 +1,284 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#262421"><meta name="color-scheme" content="dark"><title>piolin_chess · Análisis del Club</title><link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="favicon.svg"><link rel="stylesheet" href="chessground.css"><link rel="stylesheet" href="style.css"></head>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#262421">
+  <meta name="color-scheme" content="dark">
+  <title>piolin_chess · Análisis y Entrenamiento</title>
+  <link rel="icon" href="piolin.png" type="image/png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="piolin.png">
+  <link rel="stylesheet" href="chessground.css">
+  <link rel="stylesheet" href="style.css">
+</head>
 <body>
-<header class="topbar"><a class="brand" href="./" aria-label="piolin chess inicio"><span class="brand-mark">♞</span><span>piolin<span class="brand-light">_chess</span><small>AJEDREZ DEL CLUB · EN TU DISPOSITIVO</small></span></a><nav aria-label="Principal"><button id="analysis-tab" class="nav-button active">Análisis</button><button id="library-open" class="nav-button">Biblioteca <span id="library-count" class="count">0</span></button></nav><span class="local-badge"><i></i> App Lista</span></header>
+<header class="topbar">
+  <a class="brand" href="./" aria-label="piolin chess inicio">
+    <img src="piolin.png" alt="Piolín" class="brand-logo" onerror="this.outerHTML='<span class=\'brand-mark\'>🐤</span>'">
+    <span>piolin<span class="brand-light">_chess</span><small>AJEDREZ DEL CLUB · EN TU DISPOSITIVO</small></span>
+  </a>
+  <nav aria-label="Principal">
+    <button id="analysis-tab" class="nav-button active">Tablero</button>
+    <button id="online-open" class="nav-button">Lichess / Chess.com</button>
+    <button id="library-open" class="nav-button">Biblioteca <span id="library-count" class="count">0</span></button>
+  </nav>
+</header>
+
 <main>
-<section class="workspace" aria-label="Tablero de análisis">
-<div class="board-column"><div class="player-strip"><span class="avatar">♚</span><div><strong id="top-player">Negras</strong><small id="top-caption">Posición de análisis</small></div><button id="flip" class="icon-button" title="Girar tablero" aria-label="Girar tablero">⇅</button></div>
-<div class="board-area"><div class="eval-rail" aria-label="Evaluación a favor de blancas"><div id="eval-white"></div><span id="rail-score">—</span></div><div id="board" class="cg-wrap brown" role="application" aria-label="Tablero de ajedrez. Toca una pieza y su destino para mover."></div></div>
-<div class="player-strip bottom-player"><span class="avatar">♔</span><div><strong id="bottom-player">Blancas</strong><small id="turn-status">Juegan blancas</small></div><span class="keyboard-tip">← → para recorrer</span></div>
-<div class="board-actions"><button id="new-game">＋ Nueva</button><button id="import-open">↥ Cargar PGN / FEN</button><button id="export-pgn">↧ PGN</button></div>
-</div>
-<aside class="analysis-column">
-<section class="engine-card panel"><div class="section-heading"><span class="eyebrow">ANÁLISIS LOCAL</span><span class="engine-label">COMPLETO</span></div><div class="engine-main"><div><strong id="score">—</strong><span id="score-explanation">Evaluación para blancas</span></div><button id="engine-toggle" class="engine-toggle" disabled aria-label="Iniciar análisis">Analizar</button></div><div class="engine-status"><span id="engine-dot" class="status-dot loading"></span><span id="engine-status" role="status">Preparando motor…</span></div><div class="engine-tools"><label for="depth">Profundidad <select id="depth"><option>10</option><option>12</option><option selected>14</option><option>16</option><option>18</option><option>20</option></select></label><span id="depth-reached">Sin análisis</span></div><div id="pv" class="pv">El motor funciona directamente en tu navegador sin Termux.</div><button id="retry-engine" class="text-button" hidden>Reiniciar motor</button></section>
-<section class="game-card panel"><div class="section-heading"><span class="eyebrow">PARTIDA ACTUAL</span><button id="save-library" class="text-button">Guardar en biblioteca</button></div><label class="sr-only" for="game-title">Título de la partida</label><input id="game-title" class="title-input" maxlength="200" value="Partida sin título"><div id="moves" class="moves" aria-label="Lista de jugadas"><p class="empty-moves">Tu siguiente idea empieza aquí.<small>Mueve una pieza o carga una partida.</small></p></div><div class="move-controls"><button id="first" aria-label="Ir al inicio">|‹</button><button id="prev" aria-label="Jugada anterior">‹</button><span id="ply-label">Inicio</span><button id="next" aria-label="Jugada siguiente">›</button><button id="last" aria-label="Ir al final">›|</button></div></section>
-<section class="notes-card panel"><label class="eyebrow" for="notes">MIS NOTAS</label><textarea id="notes" maxlength="100000" placeholder="Planes, ideas y preguntas sobre esta partida…"></textarea><div class="save-line"><span id="save-status" role="status">Abriendo datos locales…</span><span>Solo en tu navegador</span></div></section>
-</aside></section>
-<section class="session-bar"><span>♙ <strong>Tu sesión, tu biblioteca.</strong> Sin cuentas ni Termux.</span><button id="backup-export" class="text-button">Exportar copia</button><button id="backup-import" class="text-button">Restaurar copia</button><button id="help-open" class="text-button">Ayuda</button></section>
-<p id="origin-warning" class="warning" hidden>Abre la aplicación desde tu icono instalado o desde el enlace web.</p>
-<p class="prototype-note">VERSIÓN PWA 0.2 · Stockfish 19 en navegador · <a href="licencias.html">Licencias y código fuente</a></p>
+  <section class="workspace" aria-label="Tablero de análisis">
+    <div class="board-column">
+      <div class="player-strip">
+        <span class="avatar">♚</span>
+        <div>
+          <strong id="top-player">Negras</strong>
+          <small id="top-caption">Posición de análisis</small>
+        </div>
+        <span id="clock-top" class="chess-clock" hidden>10:00</span>
+        <button id="flip" class="icon-button" title="Girar tablero" aria-label="Girar tablero">⇅</button>
+      </div>
+
+      <div class="board-area">
+        <div class="eval-rail" aria-label="Evaluación a favor de blancas">
+          <div id="eval-white"></div>
+          <span id="rail-score">—</span>
+        </div>
+        <div id="board" class="cg-wrap brown" role="application" aria-label="Tablero de ajedrez"></div>
+      </div>
+
+      <div class="player-strip bottom-player">
+        <span class="avatar">♔</span>
+        <div>
+          <strong id="bottom-player">Blancas</strong>
+          <small id="turn-status">Juegan blancas</small>
+        </div>
+        <span id="clock-bottom" class="chess-clock" hidden>10:00</span>
+      </div>
+
+      <!-- FLECHAS DE AVANCE VISIBLES JUSTO DEBAJO DEL TABLERO -->
+      <div class="move-controls top-move-controls">
+        <button id="first" aria-label="Ir al inicio">|‹</button>
+        <button id="prev" aria-label="Jugada anterior">‹</button>
+        <span id="ply-label">Inicio</span>
+        <button id="next" aria-label="Jugada siguiente">›</button>
+        <button id="last" aria-label="Ir al final">›|</button>
+      </div>
+
+      <div class="board-actions">
+        <button id="play-bot-open" class="bot-btn">🤖 Jugar vs Máquina</button>
+        <button id="online-btn-quick">☁️ Importar Online</button>
+        <button id="import-open">↥ PGN / FEN</button>
+        <button id="new-game">＋ Nueva</button>
+      </div>
+    </div>
+
+    <aside class="analysis-column">
+      <!-- PANEL DE MOTOR Y CONSEJOS DE GRAN MAESTRO -->
+      <section class="engine-card panel">
+        <div class="section-heading">
+          <span class="eyebrow">MOTOR Y ENTRENADOR GM</span>
+          <span id="mode-badge" class="engine-label">ANÁLISIS</span>
+        </div>
+        <div class="engine-main">
+          <div>
+            <strong id="score">—</strong>
+            <span id="score-explanation">Evaluación para blancas</span>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button id="engine-toggle" class="engine-toggle" disabled>Analizar</button>
+            <button id="gm-audit-btn" class="engine-toggle gm-btn" disabled title="Detectar errores y consejos GM">🎓 Revisar Fallos</button>
+          </div>
+        </div>
+        <div class="engine-status">
+          <span id="engine-dot" class="status-dot loading"></span>
+          <span id="engine-status" role="status">Preparando motor…</span>
+        </div>
+
+        <!-- CONSEJO EN VIVO DEL GRAN MAESTRO -->
+        <div id="gm-advice-box" class="gm-advice">
+          <strong>🎓 Consejo de GM:</strong> <span id="gm-advice-text">Activa «Analizar» o pulsa «Revisar Fallos» tras cargar una partida para ver tus imprecisiones, errores graves y planes recomendados.</span>
+        </div>
+
+        <!-- FILTRO DE FALLOS DE LA PARTIDA -->
+        <div id="mistakes-panel" class="mistakes-panel" hidden>
+          <div class="mistakes-header">
+            <strong id="mistakes-summary">Fallos detectados: 0</strong>
+            <button id="next-mistake-btn" class="text-button">Ir al siguiente fallo →</button>
+          </div>
+          <div id="mistakes-list" class="mistakes-list"></div>
+        </div>
+
+        <div class="engine-tools">
+          <label for="depth">Profundidad
+            <select id="depth">
+              <option>10</option><option>12</option><option selected>14</option><option>16</option><option>18</option><option>20</option>
+            </select>
+          </label>
+          <span id="depth-reached">Sin análisis</span>
+        </div>
+        <div id="pv" class="pv">Mejor línea: esperando análisis…</div>
+        <button id="retry-engine" class="text-button" hidden>Reiniciar motor</button>
+      </section>
+
+      <section class="game-card panel">
+        <div class="section-heading">
+          <span class="eyebrow">JUGADAS DE LA PARTIDA</span>
+          <div>
+            <button id="export-pgn" class="text-button" style="margin-right:10px;">↧ PGN</button>
+            <button id="save-library" class="text-button">Guardar en biblioteca</button>
+          </div>
+        </div>
+        <input id="game-title" class="title-input" maxlength="200" value="Partida sin título">
+        <div id="moves" class="moves" aria-label="Lista de jugadas"></div>
+      </section>
+
+      <section class="notes-card panel">
+        <label class="eyebrow" for="notes">MIS NOTAS</label>
+        <textarea id="notes" maxlength="100000" placeholder="Planes, ideas y preguntas sobre esta partida…"></textarea>
+        <div class="save-line">
+          <span id="save-status" role="status">Abriendo datos locales…</span>
+          <span>Guardado en tu móvil</span>
+        </div>
+      </section>
+    </aside>
+  </section>
+
+  <section class="session-bar">
+    <span>🐤 <strong>Piolín Chess Club.</strong> Con Stockfish 19 e importación directa.</span>
+    <button id="backup-export" class="text-button">Exportar copia</button>
+    <button id="backup-import" class="text-button">Restaurar copia</button>
+    <button id="help-open" class="text-button">Ayuda</button>
+  </section>
 </main>
-<dialog id="import-dialog"><form method="dialog" class="dialog-header"><h2>Cargar una partida o posición</h2><button aria-label="Cerrar">×</button></form><p>Selecciona un archivo PGN o pega su contenido. También puedes pegar un FEN.</p><label class="file-button">Seleccionar archivo PGN<input id="pgn-file" type="file" accept=".pgn,text/plain" hidden></label><label class="sr-only" for="import-text">Contenido PGN o FEN</label><textarea id="import-text" class="import-area" placeholder='[Event "Partida del club"]&#10;&#10;1. e4 e5 2. Nf3 Nc6 *'></textarea><p id="import-error" class="error" role="alert"></p><div class="dialog-footer"><button id="load-example">Usar partida de ejemplo</button><button id="import-confirm" class="primary">Cargar</button></div></dialog>
-<dialog id="library-dialog"><form method="dialog" class="dialog-header"><h2>Mi biblioteca</h2><button aria-label="Cerrar">×</button></form><p>Partidas guardadas en este navegador y este dispositivo.</p><div id="library-list"></div></dialog>
-<dialog id="promotion-dialog"><h2>Elige la promoción</h2><div class="promotion-choices"><button data-promotion="q">♕ Dama</button><button data-promotion="r">♖ Torre</button><button data-promotion="b">♗ Alfil</button><button data-promotion="n">♘ Caballo</button></div><button id="cancel-promotion">Cancelar</button></dialog>
-<dialog id="help-dialog"><form method="dialog" class="dialog-header"><h2>Tu aplicación instalada</h2><button aria-label="Cerrar">×</button></form><ol><li>Espera a que aparezca <strong>Motor preparado</strong> y pulsa <strong>Analizar</strong>.</li><li>Mueve las piezas o carga un PGN/FEN. Las flechas recorren la partida.</li><li>La sesión y las notas se guardan automáticamente. Usa <strong>Guardar en biblioteca</strong> para conservar una partida como entrada independiente.</li><li>En Chrome de tu móvil, pulsa el menú (⋮) y selecciona <strong>Añadir a pantalla de inicio / Instalar aplicación</strong> para tenerla como una app normal sin Termux.</li></ol></dialog>
-<input id="backup-file" type="file" accept=".json,application/json" hidden><div id="toast" class="toast" role="status" hidden></div><script type="module" src="app.js"></script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
-}
-</script>
-</body></html>
+
+<!-- DIÁLOGO: JUGAR CONTRA LA MÁQUINA -->
+<dialog id="bot-dialog">
+  <form method="dialog" class="dialog-header">
+    <h2>🤖 Jugar contra Piolín (Stockfish)</h2>
+    <button aria-label="Cerrar">×</button>
+  </form>
+  <div class="form-grid">
+    <label>Tu color:
+      <select id="bot-color">
+        <option value="w" selected>Blancas (mueves primero)</option>
+        <option value="b">Negras (la máquina mueve primero)</option>
+      </select>
+    </label>
+    <label>Fortaleza de la máquina (Nivel ELO):
+      <select id="bot-strength">
+        <option value="1">Nivel 1 · Principiante (~900 ELO)</option>
+        <option value="5">Nivel 2 · Aficionado (~1300 ELO)</option>
+        <option value="10" selected>Nivel 3 · Jugador de Club (~1650 ELO)</option>
+        <option value="15">Nivel 4 · Avanzado (~2000 ELO)</option>
+        <option value="20">Nivel 5 · Gran Maestro (Máxima fuerza)</option>
+      </select>
+    </label>
+    <label>Tiempo de juego:
+      <select id="bot-time">
+        <option value="0">Sin reloj (pensar sin límite)</option>
+        <option value="180">3 minutos (Blitz)</option>
+        <option value="300">5 minutos (Blitz)</option>
+        <option value="600" selected>10 minutos (Rápida)</option>
+        <option value="900">15 minutos (Rápida)</option>
+        <option value="1800">30 minutos (Clásica)</option>
+      </select>
+    </label>
+  </div>
+  <div class="dialog-footer">
+    <button id="bot-stop" type="button">Terminar partida vs Máquina</button>
+    <button id="bot-start" type="button" class="primary">¡Empezar Partida!</button>
+  </div>
+</dialog>
+
+<!-- DIÁLOGO: IMPORTAR DESDE LICHESS O CHESS.COM -->
+<dialog id="online-dialog">
+  <form method="dialog" class="dialog-header">
+    <h2>☁️ Importar de Lichess o Chess.com</h2>
+    <button aria-label="Cerrar">×</button>
+  </form>
+  <div class="form-grid">
+    <label>Plataforma:
+      <select id="online-platform">
+        <option value="lichess" selected>Lichess.org</option>
+        <option value="chesscom">Chess.com</option>
+      </select>
+    </label>
+    <label>Nombre de usuario:
+      <input id="online-user" type="text" placeholder="Ej: Edu_TS" value="Edu_TS" class="text-field">
+    </label>
+    <label>Cantidad de partidas:
+      <select id="online-max">
+        <option value="50" selected>Hasta 50 partidas</option>
+        <option value="100">Hasta 100 partidas</option>
+        <option value="200">Hasta 200 partidas</option>
+      </select>
+    </label>
+    <label>Modalidad (Ritmo):
+      <select id="online-perf">
+        <option value="all" selected>Todas las modalidades</option>
+        <option value="rapid">Rápidas (Rapid)</option>
+        <option value="blitz">Relámpago (Blitz)</option>
+        <option value="bullet">Bala (Bullet)</option>
+        <option value="classical">Clásicas (Classical)</option>
+      </select>
+    </label>
+  </div>
+  <p id="online-status" class="status-msg"></p>
+  <div class="dialog-footer">
+    <button id="online-fetch-btn" type="button" class="primary">Buscar y Descargar Partidas</button>
+  </div>
+  <div id="online-results" class="online-results"></div>
+</dialog>
+
+<!-- DIÁLOGO PGN MANUAL -->
+<dialog id="import-dialog">
+  <form method="dialog" class="dialog-header">
+    <h2>Cargar PGN o FEN</h2>
+    <button aria-label="Cerrar">×</button>
+  </form>
+  <label class="file-button">Seleccionar archivo PGN<input id="pgn-file" type="file" accept=".pgn,text/plain" hidden></label>
+  <textarea id="import-text" class="import-area" placeholder='[Event "Partida"]&#10;1. e4 e5 *'></textarea>
+  <p id="import-error" class="error" role="alert"></p>
+  <div class="dialog-footer">
+    <button id="load-example" type="button">Ejemplo</button>
+    <button id="import-confirm" type="button" class="primary">Cargar</button>
+  </div>
+</dialog>
+
+<dialog id="library-dialog">
+  <form method="dialog" class="dialog-header">
+    <h2>Mi biblioteca (<span id="lib-modal-count">0</span>)</h2>
+    <button aria-label="Cerrar">×</button>
+  </form>
+  <div id="library-list"></div>
+</dialog>
+
+<dialog id="promotion-dialog">
+  <h2>Elige la promoción</h2>
+  <div class="promotion-choices">
+    <button data-promotion="q">♕ Dama</button>
+    <button data-promotion="r">♖ Torre</button>
+    <button data-promotion="b">♗ Alfil</button>
+    <button data-promotion="n">♘ Caballo</button>
+  </div>
+  <button id="cancel-promotion">Cancelar</button>
+</dialog>
+
+<dialog id="help-dialog">
+  <form method="dialog" class="dialog-header">
+    <h2>Guía rápida de Piolín Chess</h2>
+    <button aria-label="Cerrar">×</button>
+  </form>
+  <ol>
+    <li><strong>Jugar contra la máquina:</strong> Pulsa «🤖 Jugar vs Máquina», elige tu color, el tiempo y el nivel (1 a 5). La máquina responderá automáticamente a cada jugada tuya.</li>
+    <li><strong>Importar de Lichess / Chess.com:</strong> Pulsa «☁️ Importar Online», escribe tu usuario, elige 50, 100 o 200 partidas y el ritmo. Podrás abrir cualquiera o guardarlas todas en tu Biblioteca.</li>
+    <li><strong>Consejos de GM y Fallos:</strong> En cualquier partida, pulsa «🎓 Revisar Fallos» para que Stockfish detecte imprecisiones (?!), errores (?) y errores graves (??) con consejos de Gran Maestro.</li>
+  </ol>
+</dialog>
+
+<input id="backup-file" type="file" accept=".json,application/json" hidden>
+<div id="toast" class="toast" role="status" hidden></div>
+<script type="module" src="app.js"></script>
+<script src="piolin-extras.js"></script>
+</body>
+</html>
