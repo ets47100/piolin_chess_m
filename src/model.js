@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Chess, DEFAULT_POSITION } from 'chess.js';
-export const APP_VERSION='0.1.0';
+export const APP_VERSION='3.1.0';
 export const DEFAULT_FEN=DEFAULT_POSITION;
 export function positionAt(doc, cursor=doc.cursor) {
   const chess=new Chess(doc.initialFen);
@@ -36,7 +36,7 @@ export function validateDocument(value) {
   }
   return {schema:1,id:value.id,title:value.title,initialFen:value.initialFen,
     moves:[...value.moves],cursor:value.cursor,notes:value.notes,
-    orientation:value.orientation,depth:[10,12,14,16,18,20].includes(value.depth)?value.depth:14,analyses,...(typeof value.libraryId==='string'&&value.libraryId.length<100?{libraryId:value.libraryId}:{}),...(typeof value.sourcePgn==='string'&&value.sourcePgn.length<=2000000?{sourcePgn:value.sourcePgn}:{}),updatedAt:typeof value.updatedAt==='string'?value.updatedAt:new Date().toISOString()};
+    orientation:value.orientation,depth:[10,12,14,16,18,20].includes(value.depth)?value.depth:14,analyses,...(typeof value.libraryId==='string'&&value.libraryId.length<100?{libraryId:value.libraryId}:{}),...(typeof value.studyPlayer==='string'&&value.studyPlayer.length<=200?{studyPlayer:value.studyPlayer}:{}),...(typeof value.sourcePgn==='string'&&value.sourcePgn.length<=2000000?{sourcePgn:value.sourcePgn}:{}),updatedAt:typeof value.updatedAt==='string'?value.updatedAt:new Date().toISOString()};
 }
 export function validateEngineFen(fen) {
   if(typeof fen!=='string' || /[\r\n\x00]/.test(fen)) throw Error('FEN no válido.');
@@ -65,6 +65,11 @@ export function validateEngineFen(fen) {
   }
   return chess.fen();
 }
+export function pgnHeader(pgn, name) {
+  return (pgn.match(new RegExp('^\\[' + name + '\\s+"((?:\\\\.|[^"\\\\])*)"\\s*\\]', 'm'))?.[1] || '')
+    .replace(/\\(["\\])/g, '$1').trim();
+}
+
 export function importText(text) {
   if(typeof text!=='string' || text.length>2000000) throw Error('Archivo demasiado grande (máximo 2 MB).');
   const doc=newDocument(), chess=new Chess();

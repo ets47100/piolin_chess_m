@@ -45,7 +45,24 @@
   $('online-open')?.addEventListener('click', openOnlineModal);
   $('online-btn-quick')?.addEventListener('click', openOnlineModal);
 
-  $('online-fetch-btn')?.addEventListener('click', async () => {
+  const search = $('online-fetch-btn'), save = $('online-save-all');
+  let found = [], foundUser = '';
+  save.addEventListener('click', async () => {
+    search.disabled = save.disabled = true;
+    try {
+      $('online-status').textContent = await new Promise((resolve, reject) => {
+        document.dispatchEvent(new CustomEvent('piolin:save-pgn-batch', {
+          detail: { pgns: found, player: foundUser, resolve, reject },
+        }));
+      });
+    } catch (error) {
+      $('online-status').textContent = error.message;
+    } finally {
+      search.disabled = save.disabled = false;
+    }
+  });
+
+  search?.addEventListener('click', async () => {
     const platform = $('online-platform').value;
     const user = $('online-user').value.trim();
     const max = Number($('online-max').value);
@@ -57,6 +74,9 @@
     status.textContent = `Conectando con ${platform === 'lichess' ? 'Lichess' : 'Chess.com'}…`;
     resultsBox.innerHTML = '';
 
+    search.disabled = true;
+    save.hidden = true;
+    found = [];
     try {
       let pgns = [];
       if (platform === 'lichess') {
@@ -76,7 +96,11 @@
           const mData = await mRes.json();
           for (const g of (mData.games || []).reverse()) {
             if (perf !== 'all' && g.time_class !== perf) continue;
-            if (g.pgn) pgns.push(g.pgn.trim());
+            if (g.pgn) {
+              const rhythm = ['bullet', 'blitz', 'rapid', 'classical', 'daily'].includes(g.time_class)
+                ? g.time_class : 'unknown';
+              pgns.push(g.pgn.trim().replace(/\r?\n\r?\n/, `\n[PiolinRhythm "${rhythm}"]\n\n`));
+            }
             if (pgns.length >= max) break;
           }
         }
@@ -86,34 +110,39 @@
         status.textContent = 'No se encontraron partidas con esos filtros.';
         return;
       }
-      status.textContent = `✓ ${pgns.length} partidas encontradas. Toca «Analizar» en la que quieras ver:`;
-      resultsBox.innerHTML = pgns.map((pgn, idx) => {
-        const w = (pgn.match(/\[White\s+"([^"]+)"\]/) || [,'Blancas'])[1];
-        const b = (pgn.match(/\[Black\s+"([^"]+)"\]/) || [,'Negras'])[1];
-        const r = (pgn.match(/\[Result\s+"([^"]+)"\]/) || [,'*'])[1];
-        const d = (pgn.match(/\[(?:UTCDate|Date)\s+"([^"]+)"\]/) || [,''])[1];
-        return `<div class="library-item">
-          <div class="library-description">
-            <strong>${idx + 1}. ${w} vs ${b} (${r})</strong>
-            <small>${d}</small>
-          </div>
-          <button type="button" data-load-idx="${idx}" class="primary">Analizar</button>
-        </div>`;
-      }).join('');
+      found = pgns;
+      foundUser = user;
+      save.hidden = false;
+      status.textContent = `${pgns.length} partidas encontradas. Guarda y estudia el lote, o abre una partida.`;
+      pgns.forEach((pgn, idx) => {
+        const header = key => pgn.match(new RegExp('\\[' + key + '\\s+"([^"]+)"\\]'))?.[1] || '';
+        const row = document.createElement('div'), description = document.createElement('div');
+        const names = document.createElement('strong'), date = document.createElement('small');
+        const button = document.createElement('button');
+        row.className = 'library-item';
+        description.className = 'library-description';
+        names.textContent = `${idx + 1}. ${header('White')} — ${header('Black')} (${header('Result')})`;
+        date.textContent = header('UTCDate') || header('Date');
+        description.append(names, date);
+        button.type = 'button';
+        button.dataset.loadIdx = idx;
+        button.className = 'primary';
+        button.textContent = 'Analizar';
+        row.append(description, button);
+        resultsBox.append(row);
+      });
 
       resultsBox.onclick = e => {
         const btn = e.target.closest('[data-load-idx]');
         if (!btn) return;
-        const chosenPgn = pgns[Number(btn.dataset.loadIdx)];
-        $('import-text').value = chosenPgn;
-        const origConfirm = window.confirm;
-        window.confirm = () => true;
-        $('import-confirm').click();
-        window.confirm = origConfirm;
-        $('online-dialog').close();
+        document.dispatchEvent(new CustomEvent('piolin:open-online-game', {
+          detail: { pgn: pgns[Number(btn.dataset.loadIdx)], player: user },
+        }));
       };
     } catch (err) {
       status.textContent = 'Error: ' + err.message;
+    } finally {
+      search.disabled = false;
     }
   });
 })();

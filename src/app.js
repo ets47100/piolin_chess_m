@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Chessground } from '@lichess-org/chessground';
 import { Chess } from 'chess.js';
-import { newDocument,validateDocument,positionAt,importText,exportPgn,parseBackup,legalDests,pvToSan,validateEngineFen } from './model.js';
+import { newDocument,validateDocument,positionAt,importText,exportPgn,parseBackup,legalDests,pvToSan,validateEngineFen,pgnHeader,APP_VERSION } from './model.js';
+import { playerKey, studyGame } from './player-study.js';
+import { setupStudy } from './study-view.js';
 import { LocalStore } from './storage.js';
 import { LocalEngine } from './engine.js';
 import { FULL_JS,canUseFullEngine,fullEngineInstalled,downloadFullEngine,fullEngineOptions } from './engine-store.js';
 const $=id=>document.getElementById(id);
+$('app-version').textContent = 'v' + APP_VERSION;
 const store=new LocalStore();let storeReady=false,doc=newDocument(),board,dirtyTimer,saveTail=Promise.resolve(),saveSequence=0;
 let enabled=false,pumping=false,pending=null,analysisSerial=0,scheduleTimer,lastResult=null;
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -76,6 +79,17 @@ function resetEvaluation(){
   $('depth-reached').textContent='Sin análisis de esta posición';$('pv').textContent='Pulsa Analizar para evaluar esta posición.';
   board?.setAutoShapes([]);
 }
+function renderPlayer(slot, white) {
+  const label = white ? 'Blancas' : 'Negras';
+  const name = pgnHeader(doc.sourcePgn || '', white ? 'White' : 'Black');
+  const known = Boolean(name && name !== '?' && playerKey(name) !== playerKey(label));
+  const studied = known && doc.studyPlayer && playerKey(name) === playerKey(doc.studyPlayer);
+  const display = $(slot + '-player');
+  display.textContent = known ? name : label;
+  display.title = display.textContent;
+  $(slot + '-caption').textContent = known ? label + (studied ? ' · Jugador en estudio' : '') : '';
+  $(slot + '-avatar').textContent = white ? '♔' : '♚';
+}
 function render(){
   const chess=positionAt(doc),history=chess.history({verbose:true}),last=history.at(-1);
   board.set({fen:chess.fen(),orientation:doc.orientation,turnColor:chess.turn()==='w'?'white':'black',
@@ -84,7 +98,7 @@ function render(){
   if(bot.active&&chess.isGameOver())endBot();
   updateClocks();
   $('game-title').value=doc.title;$('notes').value=doc.notes;$('depth').value=String(doc.depth||14);
-  const flipped=doc.orientation==='black';$('top-player').textContent=flipped?'Blancas':'Negras';$('bottom-player').textContent=flipped?'Negras':'Blancas';
+  const flipped=doc.orientation==='black';renderPlayer('top',flipped);renderPlayer('bottom',!flipped);
   $('turn-status').textContent=chess.isCheckmate()?'Jaque mate':chess.isStalemate()?'Ahogado':chess.isDraw()?'Tablas':`Juegan ${chess.turn()==='w'?'blancas':'negras'}${chess.inCheck()?' · jaque':''}`;
   $('first').disabled=$('prev').disabled=doc.cursor===0;$('next').disabled=$('last').disabled=doc.cursor===doc.moves.length;
   $('ply-label').textContent=doc.cursor===0?'Inicio':`${doc.cursor} / ${doc.moves.length}`;
@@ -196,16 +210,100 @@ $('game-title').addEventListener('input',()=>{doc.title=$('game-title').value;ma
 $('notes').addEventListener('input',()=>{doc.notes=$('notes').value;markDirty();});
 action('new-game',async()=>{await flushSave();if(!confirm('¿Abrir una sesión nueva? Guarda primero en biblioteca si quieres conservar esta partida.'))return;doc=newDocument();render();await flushSave();});
 action('analysis-tab',()=>{$('library-dialog').close();$('board').scrollIntoView({block:'center',behavior:'smooth'});});
-action('import-open',()=>{$('import-error').textContent='';$('import-dialog').showModal();});
+action('import-open',()=>{$('import-error').classList.add('error');$('import-error').textContent='';$('import-dialog').showModal();});
 action('load-example',()=>{$('import-text').value=example;});
 $('pgn-file').addEventListener('change',async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>2000000)throw Error('El PGN supera 2 MB.');$('import-text').value=await file.text();}catch(err){$('import-error').textContent=err.message;}finally{e.target.value='';}});
-action('import-confirm',async()=>{
-  try{
-    const imported=importText($('import-text').value);
-    if((doc.moves.length||doc.notes)&&!confirm('Cargar sustituirá la sesión actual. Las partidas de biblioteca se conservan. ¿Continuar?'))return;
-    doc=imported;render();await flushSave();$('import-dialog').close();toast('Partida cargada y guardada en la sesión.');
-  }catch(e){$('import-error').textContent='No se pudo cargar: '+e.message;}
+function markStudyPlayer(game, name) {
+  if (!name || !game.sourcePgn) return;
+  const key = playerKey(name);
+  const white = pgnHeader(game.sourcePgn, 'White'), black = pgnHeader(game.sourcePgn, 'Black');
+  if (playerKey(white) === key) game.studyPlayer = white;
+  else if (playerKey(black) === key) {
+    game.studyPlayer = black;
+    game.orientation = 'black';
+  }
+}
+
+async function importFromDialog(pgn, studyPlayer = '') {
+  try {
+    const imported = importText(pgn);
+    if ((doc.moves.length || doc.notes) && !confirm('Cargar sustituirá la sesión actual. Las partidas de biblioteca se conservan. ¿Continuar?')) return;
+    markStudyPlayer(imported, studyPlayer);
+    doc = imported;
+    render();
+    await flushSave();
+    $('import-dialog').close();
+    toast('Partida cargada y guardada en la sesión.');
+  } catch (error) {
+    $('import-error').classList.add('error');
+    $('import-error').textContent = 'No se pudo cargar: ' + error.message;
+  }
+}
+action('import-confirm', () => importFromDialog($('import-text').value));
+document.addEventListener('piolin:open-online-game', event => {
+  const { pgn, player } = event.detail;
+  $('import-error').textContent = '';
+  $('import-text').value = pgn;
+  $('online-dialog').close();
+  $('import-dialog').showModal();
+  importFromDialog(pgn, player);
 });
+let savingBatch = false;
+async function savePgnBatch(pgns, studyPlayer = '') {
+  if (!storeReady) throw Error('La Biblioteca no está disponible.');
+  if (savingBatch) throw Error('Ya se está guardando un lote.');
+  savingBatch = true;
+  try {
+    const keys = new Set((await store.all()).filter(game => game.id !== 'draft').map(studyGame).filter(Boolean).map(game => game.key));
+    const games = [], batchKeys = new Set();
+    let duplicates = 0, skipped = 0;
+    for (const pgn of pgns) {
+      try {
+        const game = importText(pgn), metadata = studyGame(game);
+        if (!metadata) { skipped++; continue; }
+        batchKeys.add(metadata.key);
+        if (keys.has(metadata.key)) { duplicates++; continue; }
+        keys.add(metadata.key);
+        markStudyPlayer(game, studyPlayer);
+        games.push({ ...game, id: crypto.randomUUID() });
+      } catch {
+        skipped++;
+      }
+    }
+    if (games.length) {
+      await store.putMany(games);
+      await updateLibrary();
+      navigator.storage?.persist?.().catch(() => {});
+    }
+    return { message: `${games.length} guardadas · ${duplicates} repetidas · ${skipped} no aptas para el estudio.`, batchKeys };
+  } finally {
+    savingBatch = false;
+  }
+}
+document.addEventListener('piolin:save-pgn-batch', event => {
+  const { pgns, player, resolve, reject } = event.detail;
+  savePgnBatch(pgns, player).then(async ({ message, batchKeys }) => {
+    if (batchKeys.size) {
+      await openStudy({ preferredPlayer: player, batchKeys });
+      $('online-dialog').close();
+      toast(message);
+    }
+    return message;
+  }).then(resolve, reject);
+});
+action('import-batch', async () => {
+  const output = $('import-error');
+  output.classList.remove('error');
+  output.textContent = 'Guardando partidas…';
+  try {
+    const pgns = $('import-text').value.trim().split(/\n\s*\n(?=\[Event\s)/);
+    output.textContent = (await savePgnBatch(pgns)).message;
+  } catch (error) {
+    output.classList.add('error');
+    output.textContent = error.message;
+  }
+});
+const openStudy = setupStudy(() => store.all().then(games => games.filter(game => game.id !== 'draft')), showError);
 action('export-pgn',()=>download('piolin_partida.pgn',exportPgn(doc),'application/x-chess-pgn'));
 action('library-open',async()=>{if(!storeReady)throw Error('No hay almacenamiento disponible.');await updateLibrary();$('library-dialog').showModal();});
 action('save-library',async()=>{

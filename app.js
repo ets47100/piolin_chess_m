@@ -1407,12 +1407,12 @@ function addSquare(squares, key, klass) {
   else
     squares.set(key, klass);
 }
-function appendValue(map, key, value) {
+function appendValue(map, key, value2) {
   const arr = map.get(key);
   if (arr)
-    arr.push(value);
+    arr.push(value2);
   else
-    map.set(key, [value]);
+    map.set(key, [value2]);
 }
 
 // node_modules/@lichess-org/chessground/dist/state.js
@@ -4999,8 +4999,8 @@ var Chess = class {
     return this._header;
   }
   // TODO: value validation per spec
-  setHeader(key, value) {
-    this._header[key] = value ?? SEVEN_TAG_ROSTER[key] ?? null;
+  setHeader(key, value2) {
+    this._header[key] = value2 ?? SEVEN_TAG_ROSTER[key] ?? null;
     return this.getHeaders();
   }
   removeHeader(key) {
@@ -5013,9 +5013,9 @@ var Chess = class {
   // return only non-null headers (omit placemarker nulls)
   getHeaders() {
     const nonNullHeaders = {};
-    for (const [key, value] of Object.entries(this._header)) {
-      if (value !== null) {
-        nonNullHeaders[key] = value;
+    for (const [key, value2] of Object.entries(this._header)) {
+      if (value2 !== null) {
+        nonNullHeaders[key] = value2;
       }
     }
     return nonNullHeaders;
@@ -5395,6 +5395,7 @@ var Chess = class {
 };
 
 // src/model.js
+var APP_VERSION = "3.1.0";
 var DEFAULT_FEN = DEFAULT_POSITION;
 function positionAt(doc2, cursor = doc2.cursor) {
   const chess = new Chess(doc2.initialFen);
@@ -5416,14 +5417,14 @@ function newDocument() {
     updatedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
-function validateDocument(value) {
-  if (!value || value.schema !== 1 || typeof value.id !== "string" || value.id.length > 100 || typeof value.title !== "string" || value.title.length > 200 || typeof value.initialFen !== "string" || value.initialFen.length > 200 || !Array.isArray(value.moves) || value.moves.length > 6e3 || value.moves.some((m) => typeof m !== "string" || m.length > 20) || !Number.isInteger(value.cursor) || value.cursor < 0 || value.cursor > value.moves.length || typeof value.notes !== "string" || value.notes.length > 1e5 || !["white", "black"].includes(value.orientation)) throw Error("Partida guardada no v\xE1lida.");
-  const chess = new Chess(value.initialFen);
+function validateDocument(value2) {
+  if (!value2 || value2.schema !== 1 || typeof value2.id !== "string" || value2.id.length > 100 || typeof value2.title !== "string" || value2.title.length > 200 || typeof value2.initialFen !== "string" || value2.initialFen.length > 200 || !Array.isArray(value2.moves) || value2.moves.length > 6e3 || value2.moves.some((m) => typeof m !== "string" || m.length > 20) || !Number.isInteger(value2.cursor) || value2.cursor < 0 || value2.cursor > value2.moves.length || typeof value2.notes !== "string" || value2.notes.length > 1e5 || !["white", "black"].includes(value2.orientation)) throw Error("Partida guardada no v\xE1lida.");
+  const chess = new Chess(value2.initialFen);
   validateEngineFen(chess.fen());
-  for (const move3 of value.moves) chess.move(move3);
+  for (const move3 of value2.moves) chess.move(move3);
   const analyses = {};
-  if (value.analyses && typeof value.analyses === "object" && !Array.isArray(value.analyses)) {
-    for (const [fen, result] of Object.entries(value.analyses).slice(-32)) {
+  if (value2.analyses && typeof value2.analyses === "object" && !Array.isArray(value2.analyses)) {
+    for (const [fen, result] of Object.entries(value2.analyses).slice(-32)) {
       if (fen.length > 200 || !result || result.fen !== fen) continue;
       try {
         validateEngineFen(fen);
@@ -5439,18 +5440,19 @@ function validateDocument(value) {
   }
   return {
     schema: 1,
-    id: value.id,
-    title: value.title,
-    initialFen: value.initialFen,
-    moves: [...value.moves],
-    cursor: value.cursor,
-    notes: value.notes,
-    orientation: value.orientation,
-    depth: [10, 12, 14, 16, 18, 20].includes(value.depth) ? value.depth : 14,
+    id: value2.id,
+    title: value2.title,
+    initialFen: value2.initialFen,
+    moves: [...value2.moves],
+    cursor: value2.cursor,
+    notes: value2.notes,
+    orientation: value2.orientation,
+    depth: [10, 12, 14, 16, 18, 20].includes(value2.depth) ? value2.depth : 14,
     analyses,
-    ...typeof value.libraryId === "string" && value.libraryId.length < 100 ? { libraryId: value.libraryId } : {},
-    ...typeof value.sourcePgn === "string" && value.sourcePgn.length <= 2e6 ? { sourcePgn: value.sourcePgn } : {},
-    updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : (/* @__PURE__ */ new Date()).toISOString()
+    ...typeof value2.libraryId === "string" && value2.libraryId.length < 100 ? { libraryId: value2.libraryId } : {},
+    ...typeof value2.studyPlayer === "string" && value2.studyPlayer.length <= 200 ? { studyPlayer: value2.studyPlayer } : {},
+    ...typeof value2.sourcePgn === "string" && value2.sourcePgn.length <= 2e6 ? { sourcePgn: value2.sourcePgn } : {},
+    updatedAt: typeof value2.updatedAt === "string" ? value2.updatedAt : (/* @__PURE__ */ new Date()).toISOString()
   };
 }
 function validateEngineFen(fen) {
@@ -5475,6 +5477,9 @@ function validateEngineFen(fen) {
     if (!(white ? /^[a-h]6$/ : /^[a-h]3$/).test(ep) || chess.get(ep) || chess.get(ep[0] + (white ? "5" : "4"))?.type !== "p" || chess.get(ep[0] + (white ? "5" : "4"))?.color !== (white ? "b" : "w") || chess.get(ep[0] + (white ? "7" : "2")) || +fields[4] !== 0) throw Error("Captura al paso incoherente.");
   }
   return chess.fen();
+}
+function pgnHeader(pgn2, name) {
+  return (pgn2.match(new RegExp("^\\[" + name + '\\s+"((?:\\\\.|[^"\\\\])*)"\\s*\\]', "m"))?.[1] || "").replace(/\\(["\\])/g, "$1").trim();
 }
 function importText(text) {
   if (typeof text !== "string" || text.length > 2e6) throw Error("Archivo demasiado grande (m\xE1ximo 2 MB).");
@@ -5541,68 +5546,240 @@ function pvToSan(fen, moves) {
   return out.join(" ");
 }
 
-// src/storage.js
-var LocalStore = class {
-  async open() {
-    if (!globalThis.indexedDB) throw Error("Este navegador no permite el almacenamiento local necesario.");
-    this.db = await new Promise((resolve, reject) => {
-      const req = indexedDB.open("piolin-chess", 1);
-      req.onupgradeneeded = () => req.result.createObjectStore("games", { keyPath: "id" });
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => reject(Error("Cierra otras pesta\xF1as de piolin_chess para abrir los datos."));
-    });
-    this.db.onversionchange = () => this.db.close();
+// src/player-study.js
+var rhythms = {
+  bullet: "Bala",
+  blitz: "Blitz",
+  rapid: "R\xE1pidas",
+  classical: "Cl\xE1sicas",
+  daily: "Por correspondencia",
+  unknown: "Ritmo sin identificar"
+};
+function rhythmFor(pgn2) {
+  const explicit = pgnHeader(pgn2, "PiolinRhythm");
+  if (explicit !== "unknown" && Object.hasOwn(rhythms, explicit)) return explicit;
+  const event = pgnHeader(pgn2, "Event").toLowerCase();
+  for (const [key, pattern] of Object.entries({
+    bullet: /\bbullet\b/,
+    blitz: /\bblitz\b/,
+    rapid: /\brapid\b/,
+    classical: /\bclassical\b/,
+    daily: /\b(daily|correspondence)\b/
+  })) {
+    if (pattern.test(event)) return key;
   }
-  tx(mode, operation) {
-    return new Promise((resolve, reject) => {
-      const tx = this.db.transaction("games", mode), store2 = tx.objectStore("games");
-      let req;
-      try {
-        req = operation(store2);
-      } catch (e) {
-        tx.abort();
-        reject(e);
-        return;
-      }
-      tx.oncomplete = () => resolve(req?.result);
-      tx.onerror = () => reject(tx.error || Error("No se pudo guardar."));
-      tx.onabort = () => reject(tx.error || Error("Guardado cancelado."));
-    });
+  const control = pgnHeader(pgn2, "TimeControl");
+  if (/^1\/\d+$/.test(control)) return "daily";
+  const seconds = control.match(/^(\d+)(?:\+(\d+))?$/);
+  if (!seconds) return "unknown";
+  const base = Number(seconds[1]), increment = Number(seconds[2] || 0);
+  const chesscom = /chess\.com/i.test(pgnHeader(pgn2, "Site"));
+  const estimated = base + 40 * increment;
+  if (!estimated) return "unknown";
+  if (estimated < 180) return "bullet";
+  if (estimated < (chesscom ? 600 : 480)) return "blitz";
+  if (chesscom) return "rapid";
+  if (estimated < 1500) return "rapid";
+  return "classical";
+}
+var playerKey = (name) => name.toLowerCase();
+function studyGame(doc2) {
+  const pgn2 = doc2.sourcePgn || "";
+  const variant = pgnHeader(pgn2, "Variant").toLowerCase();
+  if (variant && !["standard", "chess", "from position"].includes(variant)) return null;
+  const white = pgnHeader(pgn2, "White"), black = pgnHeader(pgn2, "Black");
+  if (!white || !black || white === "?" || black === "?" || !doc2.moves.length) return null;
+  const date = [pgnHeader(pgn2, "UTCDate"), pgnHeader(pgn2, "Date")].find((value2) => /^\d{4}\.\d{2}\.\d{2}$/.test(value2)) || "";
+  const time = [pgnHeader(pgn2, "UTCTime"), pgnHeader(pgn2, "Time")].find((value2) => /^\d{2}:\d{2}:\d{2}$/.test(value2)) || "";
+  const rhythm = rhythmFor(pgn2);
+  return {
+    doc: doc2,
+    white,
+    black,
+    date,
+    time,
+    rhythm,
+    key: JSON.stringify([playerKey(white), playerKey(black), date, time, doc2.initialFen, doc2.moves])
+  };
+}
+function selectGames(games, player, color, rhythm, limit) {
+  const selected = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const game of games) {
+    const white = playerKey(game.white) === player;
+    const black = playerKey(game.black) === player;
+    const colors2 = [white && color !== "b" && "w", black && color !== "w" && "b"].filter(Boolean);
+    if (!colors2.length || rhythm !== "all" && rhythm !== game.rhythm || seen.has(game.key)) continue;
+    seen.add(game.key);
+    selected.push({ ...game, colors: colors2 });
   }
-  get(id) {
-    return this.tx("readonly", (s) => s.get(id));
-  }
-  all() {
-    return this.tx("readonly", (s) => s.getAll());
-  }
-  put(doc2) {
-    return this.tx("readwrite", (s) => s.put(structuredClone(doc2)));
-  }
-  remove(id) {
-    return this.tx("readwrite", (s) => s.delete(id));
-  }
-  restore(backup) {
-    return this.tx("readwrite", (s) => {
-      s.clear();
-      for (const game of backup.games) s.put(game);
-      s.put(backup.draft);
-    });
+  selected.sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time) || b.doc.updatedAt.localeCompare(a.doc.updatedAt));
+  return selected.slice(0, limit);
+}
+var lessons = {
+  mate: {
+    title: "T\xE1ctica \xB7 Mate forzado",
+    tip: "Antes de decidir, calcula los jaques de ambos bandos. Para cada jaque, comprueba si se puede capturar la pieza, interponer otra o mover el rey."
+  },
+  material: {
+    title: "T\xE1ctica \xB7 P\xE9rdida de material",
+    tip: "Despu\xE9s de imaginar tu jugada, busca la captura m\xE1s fuerte del rival. Cuenta qu\xE9 material queda al final de la secuencia e identifica las piezas que quedan sin defensa."
+  },
+  king: {
+    title: "Estrategia \xB7 Rey en el centro al abrirse una columna central",
+    tip: "Antes de cambiar peones centrales, compara qu\xE9 rey queda m\xE1s expuesto y qui\xE9n puede ocupar primero la columna. Considera asegurar tu rey antes de abrir el juego."
+  },
+  development: {
+    title: "Estrategia \xB7 Desarrollo pendiente en la apertura",
+    tip: "Compara tu jugada con una que saque una pieza menor y mejore la coordinaci\xF3n. Preg\xFAntate qu\xE9 amenaza concreta justifica aplazar el desarrollo."
+  },
+  other: {
+    title: "Otras decisiones para revisar",
+    tip: "Busca dos jugadas candidatas y la mejor respuesta rival a cada una. Compara tu c\xE1lculo con la variante del motor para localizar el punto en que cambi\xF3 la posici\xF3n."
   }
 };
+var value = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+var material = (chess, color) => chess.board().flat().reduce((sum, piece) => sum + (piece ? value[piece.type] * (piece.color === color ? 1 : -1) : 0), 0);
+function playLine(fen, line) {
+  const chess = new Chess(fen);
+  for (const move3 of line) {
+    try {
+      chess.move({ from: move3.slice(0, 2), to: move3.slice(2, 4), promotion: move3[4] });
+    } catch {
+      break;
+    }
+  }
+  return chess;
+}
+function score(result, sideToMove, player) {
+  const ev = result?.evaluation;
+  if (!ev || ev.bound !== "exact") return null;
+  const numeric = ev.type === "mate" ? ev.value > 0 ? 1e3 : -1e3 : Math.max(-900, Math.min(900, ev.value));
+  return numeric * (sideToMove === player ? 1 : -1);
+}
+function lossOf(before, after, player) {
+  const first = score(before, player, player);
+  const second = score(after, player === "w" ? "b" : "w", player);
+  return first === null || second === null ? 0 : first - second;
+}
+function classify(move3, before, after) {
+  const color = move3.color;
+  const best = playLine(move3.before, before.evaluation.pv.slice(0, 4));
+  const reply = playLine(move3.after, after.evaluation.pv.slice(0, 3));
+  if (before.evaluation.type !== after.evaluation.type || before.evaluation.type === "mate" && Math.sign(before.evaluation.value) === Math.sign(after.evaluation.value)) {
+    if (before.evaluation.type === "mate" || after.evaluation.type === "mate") return "mate";
+  }
+  const initial2 = new Chess(move3.before);
+  if (material(best, color) - material(reply, color) >= 2 && material(initial2, color) - material(reply, color) >= 2) return "material";
+  const played = new Chess(move3.after);
+  const king2 = played.board().flat().find((piece) => piece?.type === "k" && piece.color === color);
+  const openFiles = (chess) => {
+    const pawnFiles = new Set(chess.board().flat().filter((piece) => piece?.type === "p").map((piece) => piece.square[0]));
+    return Number(!pawnFiles.has("d")) + Number(!pawnFiles.has("e"));
+  };
+  if (move3.piece === "p" && move3.captured && ["d", "e"].includes(king2?.square[0]) && openFiles(played) > openFiles(initial2)) return "king";
+  if (initial2.moveNumber() <= 12) {
+    const rank2 = color === "w" ? "1" : "8";
+    const waiting = ["b", "c", "f", "g"].filter((file2) => {
+      const piece = initial2.get(file2 + rank2);
+      return piece?.color === color && ["n", "b"].includes(piece.type);
+    });
+    if (waiting.length >= 2 && waiting.includes(before.bestMove?.[0]) && before.bestMove[1] === rank2 && !waiting.some((file2) => move3.from === file2 + rank2)) return "development";
+  }
+  return "other";
+}
+async function analyzeStudyGame(game, analyze, onProgress, isPaused) {
+  const chess = new Chess(game.doc.initialFen);
+  const moves = game.doc.moves.map((san) => chess.move(san));
+  const scans = /* @__PURE__ */ new Map();
+  const evaluate = async (fen, depth) => {
+    const key = depth + " " + fen;
+    if (!scans.has(key)) {
+      const position = new Chess(fen);
+      const evaluation = position.isCheckmate() ? { type: "mate", value: 0, bound: "exact", pv: [] } : position.isStalemate() || position.isInsufficientMaterial() ? { type: "cp", value: 0, bound: "exact", pv: [] } : null;
+      scans.set(key, evaluation ? { evaluation, bestMove: null } : await analyze(fen, depth));
+    }
+    return scans.get(key);
+  };
+  const findings = [];
+  for (let i = 0; i < moves.length; i++) {
+    if (isPaused()) return null;
+    const move3 = moves[i];
+    if (!game.colors.includes(move3.color)) continue;
+    onProgress(i + 1, moves.length);
+    const first = await evaluate(move3.before, 8);
+    const second = await evaluate(move3.after, 8);
+    if (lossOf(first, second, move3.color) < 110) continue;
+    const before = await evaluate(move3.before, 12);
+    const after = await evaluate(move3.after, 12);
+    const loss = lossOf(before, after, move3.color);
+    if (loss < 125 || !before.bestMove) continue;
+    findings.push({
+      kind: classify(move3, before, after),
+      game: game.doc.title,
+      ply: i + 1,
+      loss,
+      move: move3.san,
+      fen: move3.before,
+      color: move3.color,
+      best: before.bestMove,
+      solution: pvToSan(move3.before, before.evaluation.pv),
+      reply: pvToSan(move3.after, after.evaluation.pv)
+    });
+  }
+  return findings;
+}
+function summarize(records) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const record of records) {
+    const rhythm = record.game.rhythm;
+    if (!groups.has(rhythm)) groups.set(rhythm, []);
+    groups.get(rhythm).push(record);
+  }
+  return [...groups].map(([rhythm, games]) => {
+    const patterns = Object.keys(lessons).map((kind) => {
+      const examples = games.flatMap((game) => game.findings.filter((event) => event.kind === kind));
+      const has = (game) => game.findings.some((event) => event.kind === kind);
+      const recent = games.slice(0, 10), prior = games.slice(10);
+      const ranked = [...examples].sort((a, b) => b.loss - a.loss);
+      const distinct = /* @__PURE__ */ new Map();
+      for (const example2 of ranked) {
+        const position = example2.fen.split(" ").slice(0, 4).join(" ");
+        if (!distinct.has(position)) distinct.set(position, example2);
+        if (distinct.size === 3) break;
+      }
+      return {
+        kind,
+        count: games.filter(has).length,
+        total: examples.length,
+        examples: [...distinct.values()],
+        impact: examples.reduce((sum, example2) => sum + example2.loss, 0),
+        recent: recent.filter(has).length,
+        prior: prior.filter(has).length,
+        priorTotal: prior.length
+      };
+    }).filter((pattern) => pattern.total).sort((a, b) => b.count - a.count || b.impact - a.impact);
+    return {
+      rhythm,
+      count: games.length,
+      patterns: patterns.slice(0, 3),
+      chronological: games.every(({ game }) => Boolean(game.date))
+    };
+  });
+}
 
 // src/engine.js
 function parseInfo(line) {
   if (!line.startsWith("info ") || line.startsWith("info string ")) return null;
   const tokens = line.trim().split(/\s+/), pv = tokens.indexOf("pv");
   const head = pv < 0 ? tokens : tokens.slice(0, pv);
-  const score = head.indexOf("score"), depth = head.indexOf("depth");
-  if (score < 0 || depth < 0) return null;
-  const type = head[score + 1], value = Number(head[score + 2]), d = Number(head[depth + 1]);
-  if (!["cp", "mate"].includes(type) || !Number.isInteger(value) || !Number.isInteger(d)) return null;
+  const score2 = head.indexOf("score"), depth = head.indexOf("depth");
+  if (score2 < 0 || depth < 0) return null;
+  const type = head[score2 + 1], value2 = Number(head[score2 + 2]), d = Number(head[depth + 1]);
+  if (!["cp", "mate"].includes(type) || !Number.isInteger(value2) || !Number.isInteger(d)) return null;
   const mp = head.indexOf("multipv");
   if (mp >= 0 && head[mp + 1] !== "1") return null;
-  return { type, value, depth: d, bound: head.includes("lowerbound") ? "lower" : head.includes("upperbound") ? "upper" : "exact", pv: pv < 0 ? [] : tokens.slice(pv + 1), nodes: Number(head[head.indexOf("nodes") + 1]) || 0 };
+  return { type, value: value2, depth: d, bound: head.includes("lowerbound") ? "lower" : head.includes("upperbound") ? "upper" : "exact", pv: pv < 0 ? [] : tokens.slice(pv + 1), nodes: Number(head[head.indexOf("nodes") + 1]) || 0 };
 }
 var LocalEngine = class {
   constructor({ workerFactory = (url2) => new Worker(url2), onStatus = () => {
@@ -5634,7 +5811,7 @@ var LocalEngine = class {
     this.worker.onerror = () => this._fail(Error("No se pudo ejecutar Stockfish. Comprueba que arrancaste desde el servidor local y que el dispositivo tiene memoria disponible."));
     try {
       await this._command("uci", "uciok", 12e4);
-      for (const [name, value] of Object.entries(this.options)) this.setOption(name, value);
+      for (const [name, value2] of Object.entries(this.options)) this.setOption(name, value2);
       this.send("setoption name MultiPV value 1");
       this.send("setoption name UCI_Chess960 value false");
       await this._command("isready", "readyok", 3e4);
@@ -5645,9 +5822,9 @@ var LocalEngine = class {
       throw e;
     }
   }
-  setOption(name, value) {
-    if (!/^[A-Za-z ]+$/.test(name) || !/^[\w.-]+$/.test(String(value))) throw Error("Opci\xF3n UCI no v\xE1lida.");
-    this.send("setoption name " + name + " value " + value);
+  setOption(name, value2) {
+    if (!/^[A-Za-z ]+$/.test(name) || !/^[\w.-]+$/.test(String(value2))) throw Error("Opci\xF3n UCI no v\xE1lida.");
+    this.send("setoption name " + name + " value " + value2);
   }
   send(command) {
     if (this.dead || !this.worker) throw Error("El motor no est\xE1 disponible.");
@@ -5782,6 +5959,270 @@ var LocalEngine = class {
   }
 };
 
+// src/study-view.js
+var $ = (id) => document.getElementById(id);
+function setupStudy(loadLibrary, showError2) {
+  const dialog = $("study-dialog"), form = $("study-form"), player = $("study-player");
+  const start5 = $("study-start"), pause = $("study-pause"), status = $("study-status");
+  const progress = $("study-progress"), results = $("study-results");
+  const onlyBatch = $("study-only-batch");
+  const filters = [player, $("study-rhythm"), $("study-color"), $("study-limit"), onlyBatch];
+  const exercise = $("study-exercise");
+  let library = [], batch, job, engine2, board2, position, example2, solved;
+  async function open({ preferredPlayer = "", batchKeys } = {}) {
+    library = (await loadLibrary()).map(studyGame).filter(Boolean);
+    const users = /* @__PURE__ */ new Map();
+    for (const game of library) {
+      for (const name of [game.white, game.black]) users.set(playerKey(name), name);
+    }
+    const selected = preferredPlayer ? playerKey(preferredPlayer) : player.value;
+    batch = batchKeys;
+    $("study-scope").hidden = !batch;
+    onlyBatch.checked = Boolean(batch);
+    if (batch) {
+      $("study-rhythm").value = "all";
+      $("study-color").value = "all";
+      $("study-limit").value = "all";
+    }
+    player.replaceChildren(...[...users].sort((a, b) => a[1].localeCompare(b[1], "es")).map(([key, name]) => new Option(name, key)));
+    if (users.has(selected)) player.value = selected;
+    updateSelection();
+    dialog.showModal();
+  }
+  function selection() {
+    const candidates = onlyBatch.checked && batch ? library.filter((game) => batch.has(game.key)) : library;
+    return selectGames(
+      candidates,
+      player.value,
+      $("study-color").value,
+      $("study-rhythm").value,
+      Number($("study-limit").value) || Infinity
+    );
+  }
+  function updateSelection() {
+    const games = selection();
+    const same = job?.key === JSON.stringify(games.map((game) => [game.key, game.colors])) && job.player === player.value;
+    if (!same) job = void 0;
+    status.textContent = games.length ? `${games.length} partidas seleccionadas para este estudio.` : "No hay partidas con jugador y jugadas para esos filtros. Guarda en la Biblioteca las partidas PGN del jugador.";
+    progress.hidden = !job;
+    if (job) showProgress(job.records.length, games.length);
+    results.replaceChildren();
+    if (job?.records.length) renderReport();
+    start5.disabled = !games.length;
+    start5.textContent = !job ? "Analizar partidas" : job.records.length < games.length ? "Continuar an\xE1lisis" : "Analizar de nuevo";
+  }
+  function showProgress(done, total, detail = "") {
+    progress.max = total;
+    progress.value = done;
+    status.textContent = `${done} de ${total} partidas analizadas.${detail ? " " + detail : ""}`;
+  }
+  function renderReport() {
+    results.replaceChildren();
+    const note = document.createElement("p");
+    note.textContent = "Estimaci\xF3n de Stockfish. Los patrones estrat\xE9gicos son pistas para revisar. Las comparaciones usan partidas del mismo ritmo; si falta la fecha PGN, ese grupo no muestra evoluci\xF3n.";
+    results.append(note);
+    for (const group of summarize(job.records)) {
+      const section = document.createElement("section");
+      section.className = "study-group";
+      const title = document.createElement("h3");
+      title.textContent = `${rhythms[group.rhythm]} \xB7 ${group.count} partidas`;
+      section.append(title);
+      if (!group.patterns.length) {
+        const empty = document.createElement("p");
+        empty.textContent = "El an\xE1lisis no encontr\xF3 p\xE9rdidas de evaluaci\xF3n suficientemente claras.";
+        section.append(empty);
+      }
+      for (const pattern of group.patterns) {
+        const lesson = lessons[pattern.kind], heading = document.createElement("h4");
+        heading.textContent = lesson.title;
+        const stats = document.createElement("p");
+        stats.textContent = `${pattern.count} de ${group.count} partidas \xB7 ${pattern.total} casos.`;
+        if (pattern.priorTotal && group.chronological && group.rhythm !== "unknown") {
+          stats.textContent += ` \xDAltimas 10: ${pattern.recent}/10. Anteriores: ${pattern.prior}/${pattern.priorTotal}.`;
+        }
+        const tip = document.createElement("p");
+        tip.textContent = lesson.tip;
+        section.append(heading, stats, tip);
+        for (const event of pattern.examples) {
+          const button = document.createElement("button");
+          button.type = "button";
+          const number = event.fen.split(" ")[5];
+          button.textContent = `${event.game} \xB7 jugada ${number} con ${event.color === "w" ? "blancas" : "negras"}`;
+          button.addEventListener("click", () => openExercise(event));
+          section.append(button);
+        }
+      }
+      results.append(section);
+    }
+  }
+  function renderExercise() {
+    const orientation = example2.color === "w" ? "white" : "black";
+    board2.set({
+      fen: position.fen(),
+      orientation,
+      check: position.inCheck(),
+      lastMove: void 0,
+      turnColor: position.turn() === "w" ? "white" : "black",
+      movable: { free: false, color: solved ? void 0 : orientation, dests: legalDests(position) }
+    });
+  }
+  function openExercise(event) {
+    example2 = event;
+    exercise.showModal();
+    if (!board2) {
+      board2 = Chessground($("study-board"), {
+        coordinates: true,
+        drawable: { enabled: false },
+        premovable: { enabled: false },
+        movable: { events: { after: (from, to) => {
+          const candidates = position.moves({ verbose: true }).filter((move4) => move4.from === from && move4.to === to);
+          if (!candidates.length || solved) return;
+          if (candidates.some((move4) => move4.promotion)) {
+            $("study-exercise-feedback").textContent = "Puedes consultar la variante del motor para ver la pieza de promoci\xF3n.";
+            renderExercise();
+            return;
+          }
+          const move3 = position.move({ from, to });
+          solved = true;
+          $("study-exercise-feedback").textContent = move3.lan === example2.best ? `${move3.san}: coincide con la primera opci\xF3n de Stockfish.` : `Has probado ${move3.san}. Consulta la variante del motor para comparar las ideas.`;
+          renderExercise();
+        } } }
+      });
+    }
+    resetExercise();
+  }
+  function resetExercise() {
+    position = new Chess(example2.fen);
+    solved = false;
+    $("study-exercise-title").textContent = example2.game;
+    const name = player.selectedOptions[0]?.text || "";
+    const color = example2.color === "w" ? "blancas" : "negras";
+    const feedback = $("study-exercise-feedback");
+    feedback.textContent = name + " juega con " + color + ". Encuentra una continuaci\xF3n.";
+    const solution = $("study-exercise-solution");
+    solution.hidden = true;
+    solution.textContent = "";
+    renderExercise();
+  }
+  $("study-exercise-reset").addEventListener("click", resetExercise);
+  $("study-exercise-reveal").addEventListener("click", () => {
+    const solution = $("study-exercise-solution");
+    solution.textContent = `En la partida: ${example2.move}${example2.reply ? " \xB7 Respuesta y continuaci\xF3n: " + example2.reply : ""}. Sugerencia de Stockfish: ${example2.solution || pvToSan(example2.fen, [example2.best])}.`;
+    solution.hidden = false;
+  });
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (engine2) return;
+    const games = selection();
+    if (!games.length) return;
+    if (!job || job.records.length === games.length) {
+      job = { key: JSON.stringify(games.map((game) => [game.key, game.colors])), player: player.value, records: [] };
+    }
+    const worker = new LocalEngine({ options: { Hash: 16 } });
+    engine2 = worker;
+    start5.disabled = true;
+    pause.disabled = false;
+    for (const filter of filters) filter.disabled = true;
+    results.replaceChildren();
+    progress.hidden = false;
+    showProgress(job.records.length, games.length, "Preparando Stockfish\u2026");
+    let message = "";
+    try {
+      for (const game of games.slice(job.records.length)) {
+        if (engine2 !== worker) break;
+        const findings = await analyzeStudyGame(
+          game,
+          (fen, depth) => worker.analyze(fen, depth),
+          (ply, total) => {
+            if (ply <= 2 || ply % 12 < 2) showProgress(job.records.length, games.length, `Jugada ${ply} de ${total}.`);
+          },
+          () => engine2 !== worker
+        );
+        if (!findings || engine2 !== worker) break;
+        job.records.push({ game, findings });
+        showProgress(job.records.length, games.length);
+      }
+    } catch (error) {
+      if (engine2 === worker) message = error.message;
+    } finally {
+      const paused = engine2 !== worker;
+      worker.destroy();
+      engine2 = void 0;
+      for (const filter of filters) filter.disabled = false;
+      start5.disabled = false;
+      pause.disabled = true;
+      start5.textContent = job.records.length < games.length ? "Continuar an\xE1lisis" : "Analizar de nuevo";
+      showProgress(job.records.length, games.length, message || (paused ? "An\xE1lisis en pausa. Se conservan las partidas completadas mientras esta pesta\xF1a siga abierta." : "An\xE1lisis terminado."));
+      if (job.records.length) renderReport();
+    }
+  });
+  function stop2() {
+    const worker = engine2;
+    engine2 = void 0;
+    worker?.destroy();
+  }
+  pause.addEventListener("click", stop2);
+  dialog.addEventListener("close", stop2);
+  for (const filter of filters) filter.addEventListener("change", updateSelection);
+  $("study-open").addEventListener("click", () => open().catch(showError2));
+  return open;
+}
+
+// src/storage.js
+var LocalStore = class {
+  async open() {
+    if (!globalThis.indexedDB) throw Error("Este navegador no permite el almacenamiento local necesario.");
+    this.db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open("piolin-chess", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("games", { keyPath: "id" });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(Error("Cierra otras pesta\xF1as de piolin_chess para abrir los datos."));
+    });
+    this.db.onversionchange = () => this.db.close();
+  }
+  tx(mode, operation) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction("games", mode), store2 = tx.objectStore("games");
+      let req;
+      try {
+        req = operation(store2);
+      } catch (e) {
+        tx.abort();
+        reject(e);
+        return;
+      }
+      tx.oncomplete = () => resolve(req?.result);
+      tx.onerror = () => reject(tx.error || Error("No se pudo guardar."));
+      tx.onabort = () => reject(tx.error || Error("Guardado cancelado."));
+    });
+  }
+  get(id) {
+    return this.tx("readonly", (s) => s.get(id));
+  }
+  all() {
+    return this.tx("readonly", (s) => s.getAll());
+  }
+  put(doc2) {
+    return this.tx("readwrite", (s) => s.put(structuredClone(doc2)));
+  }
+  putMany(docs) {
+    return this.tx("readwrite", (store2) => {
+      for (const doc2 of docs) store2.put(doc2);
+    });
+  }
+  remove(id) {
+    return this.tx("readwrite", (s) => s.delete(id));
+  }
+  restore(backup) {
+    return this.tx("readwrite", (s) => {
+      s.clear();
+      for (const game of backup.games) s.put(game);
+      s.put(backup.draft);
+    });
+  }
+};
+
 // src/engine-store.js
 var ENGINE_CACHE = "piolin-engine-v1";
 var FULL_JS = "engine/full/stockfish-19.js";
@@ -5811,15 +6252,15 @@ async function downloadFullEngine(onProgress = () => {
   let received = 0;
   const stream = new ReadableStream({
     async pull(controller) {
-      const { done, value } = await reader.read();
+      const { done, value: value2 } = await reader.read();
       if (done) {
         if (received !== FULL_BYTES) controller.error(Error("Descarga incompleta de Stockfish completo."));
         else controller.close();
         return;
       }
-      received += value.length;
+      received += value2.length;
       onProgress(received, FULL_BYTES);
-      controller.enqueue(value);
+      controller.enqueue(value2);
     },
     cancel(reason) {
       return reader.cancel(reason);
@@ -5836,7 +6277,8 @@ function fullEngineOptions() {
 }
 
 // src/app.js
-var $ = (id) => document.getElementById(id);
+var $2 = (id) => document.getElementById(id);
+$2("app-version").textContent = "v" + APP_VERSION;
 var store = new LocalStore();
 var storeReady = false;
 var doc = newDocument();
@@ -5855,16 +6297,16 @@ var example = '[Event "Miniatura de ejemplo"]\n[White "Blancas"]\n[Black "Negras
 var bot = { active: false, color: "b", skill: 10, thinking: false, serial: 0, clock: null, times: { w: 0, b: 0 }, timed: false };
 var toastTimer;
 function toast(text) {
-  $("toast").textContent = text;
-  $("toast").hidden = false;
+  $2("toast").textContent = text;
+  $2("toast").hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $("toast").hidden = true, 4500);
+  toastTimer = setTimeout(() => $2("toast").hidden = true, 4500);
 }
 function engineStatus(text) {
-  $("engine-status").textContent = text;
+  $2("engine-status").textContent = text;
   const failed = engine?.dead;
-  $("engine-dot").className = "status-dot" + (failed ? " error" : engine?.ready ? "" : " loading");
-  $("retry-engine").hidden = !failed;
+  $2("engine-dot").className = "status-dot" + (failed ? " error" : engine?.ready ? "" : " loading");
+  $2("retry-engine").hidden = !failed;
 }
 var engineMode = "lite";
 var engine;
@@ -5935,7 +6377,7 @@ function download(name, text, type = "application/json") {
   setTimeout(() => URL.revokeObjectURL(url), 3e4);
 }
 function markDirty() {
-  $("save-status").textContent = storeReady ? "Guardando\u2026" : "Sin guardado: exporta una copia";
+  $2("save-status").textContent = storeReady ? "Guardando\u2026" : "Sin guardado: exporta una copia";
   clearTimeout(dirtyTimer);
   dirtyTimer = setTimeout(() => flushSave().catch(showError), 150);
 }
@@ -5951,21 +6393,32 @@ async function flushSave() {
   saveTail = work;
   try {
     await work;
-    if (serial === saveSequence) $("save-status").textContent = "\u2713 Sesi\xF3n guardada";
+    if (serial === saveSequence) $2("save-status").textContent = "\u2713 Sesi\xF3n guardada";
   } catch (e) {
-    $("save-status").textContent = "No se pudo guardar: exporta una copia";
+    $2("save-status").textContent = "No se pudo guardar: exporta una copia";
     throw e;
   }
 }
 function resetEvaluation() {
   lastResult = null;
-  $("score-explanation").textContent = "Evaluaci\xF3n para blancas";
-  $("score").textContent = "\u2014";
-  $("rail-score").textContent = "\u2014";
-  $("eval-white").style.height = "50%";
-  $("depth-reached").textContent = "Sin an\xE1lisis de esta posici\xF3n";
-  $("pv").textContent = "Pulsa Analizar para evaluar esta posici\xF3n.";
+  $2("score-explanation").textContent = "Evaluaci\xF3n para blancas";
+  $2("score").textContent = "\u2014";
+  $2("rail-score").textContent = "\u2014";
+  $2("eval-white").style.height = "50%";
+  $2("depth-reached").textContent = "Sin an\xE1lisis de esta posici\xF3n";
+  $2("pv").textContent = "Pulsa Analizar para evaluar esta posici\xF3n.";
   board?.setAutoShapes([]);
+}
+function renderPlayer(slot, white) {
+  const label = white ? "Blancas" : "Negras";
+  const name = pgnHeader(doc.sourcePgn || "", white ? "White" : "Black");
+  const known = Boolean(name && name !== "?" && playerKey(name) !== playerKey(label));
+  const studied = known && doc.studyPlayer && playerKey(name) === playerKey(doc.studyPlayer);
+  const display = $2(slot + "-player");
+  display.textContent = known ? name : label;
+  display.title = display.textContent;
+  $2(slot + "-caption").textContent = known ? label + (studied ? " \xB7 Jugador en estudio" : "") : "";
+  $2(slot + "-avatar").textContent = white ? "\u2654" : "\u265A";
 }
 function render4() {
   const chess = positionAt(doc), history = chess.history({ verbose: true }), last = history.at(-1);
@@ -5979,29 +6432,29 @@ function render4() {
   });
   if (bot.active && chess.isGameOver()) endBot();
   updateClocks();
-  $("game-title").value = doc.title;
-  $("notes").value = doc.notes;
-  $("depth").value = String(doc.depth || 14);
+  $2("game-title").value = doc.title;
+  $2("notes").value = doc.notes;
+  $2("depth").value = String(doc.depth || 14);
   const flipped = doc.orientation === "black";
-  $("top-player").textContent = flipped ? "Blancas" : "Negras";
-  $("bottom-player").textContent = flipped ? "Negras" : "Blancas";
-  $("turn-status").textContent = chess.isCheckmate() ? "Jaque mate" : chess.isStalemate() ? "Ahogado" : chess.isDraw() ? "Tablas" : `Juegan ${chess.turn() === "w" ? "blancas" : "negras"}${chess.inCheck() ? " \xB7 jaque" : ""}`;
-  $("first").disabled = $("prev").disabled = doc.cursor === 0;
-  $("next").disabled = $("last").disabled = doc.cursor === doc.moves.length;
-  $("ply-label").textContent = doc.cursor === 0 ? "Inicio" : `${doc.cursor} / ${doc.moves.length}`;
+  renderPlayer("top", flipped);
+  renderPlayer("bottom", !flipped);
+  $2("turn-status").textContent = chess.isCheckmate() ? "Jaque mate" : chess.isStalemate() ? "Ahogado" : chess.isDraw() ? "Tablas" : `Juegan ${chess.turn() === "w" ? "blancas" : "negras"}${chess.inCheck() ? " \xB7 jaque" : ""}`;
+  $2("first").disabled = $2("prev").disabled = doc.cursor === 0;
+  $2("next").disabled = $2("last").disabled = doc.cursor === doc.moves.length;
+  $2("ply-label").textContent = doc.cursor === 0 ? "Inicio" : `${doc.cursor} / ${doc.moves.length}`;
   renderMoves();
   resetEvaluation();
   const cached = doc.analyses?.[chess.fen()];
   if (cached) {
     lastResult = cached;
     showEvaluation(cached.fen, cached.evaluation, cached.bestMove);
-    $("depth-reached").textContent += " \xB7 guardado";
+    $2("depth-reached").textContent += " \xB7 guardado";
   }
   scheduleAnalysis();
 }
 function renderMoves() {
   if (!doc.moves.length) {
-    $("moves").innerHTML = '<p class="empty-moves">Tu siguiente idea empieza aqu\xED.<small>Mueve una pieza o carga una partida.</small></p>';
+    $2("moves").innerHTML = '<p class="empty-moves">Tu siguiente idea empieza aqu\xED.<small>Mueve una pieza o carga una partida.</small></p>';
     return;
   }
   const fields = doc.initialFen.split(" "), start5 = (Number(fields[5]) - 1) * 2 + (fields[1] === "b" ? 1 : 0), rows = /* @__PURE__ */ new Map();
@@ -6010,8 +6463,8 @@ function renderMoves() {
     if (!rows.has(num)) rows.set(num, ["", ""]);
     rows.get(num)[absolute % 2] = `<button class="move-button${doc.cursor === i + 1 ? " selected" : ""}" data-ply="${i + 1}" aria-label="Ir a ${escape(san)}">${escape(san)}</button>`;
   });
-  $("moves").innerHTML = [...rows].map(([n, ms]) => `<div class="move-row"><span class="move-num">${n}.</span>${ms[0] || "<span></span>"}${ms[1] || "<span></span>"}</div>`).join("");
-  const list = $("moves"), sel = list.querySelector(".selected");
+  $2("moves").innerHTML = [...rows].map(([n, ms]) => `<div class="move-row"><span class="move-num">${n}.</span>${ms[0] || "<span></span>"}${ms[1] || "<span></span>"}</div>`).join("");
+  const list = $2("moves"), sel = list.querySelector(".selected");
   if (sel) {
     const l = list.getBoundingClientRect(), s = sel.getBoundingClientRect();
     if (s.top < l.top) list.scrollTop -= l.top - s.top;
@@ -6024,9 +6477,9 @@ function jump(cursor) {
   markDirty();
 }
 async function choosePromotion() {
-  $("promotion-dialog").showModal();
+  $2("promotion-dialog").showModal();
   return new Promise((resolve) => {
-    const dialog = $("promotion-dialog");
+    const dialog = $2("promotion-dialog");
     const click = (e) => {
       const promotion = e.target.closest("[data-promotion]")?.dataset.promotion;
       if (!promotion && e.target.id !== "cancel-promotion") return;
@@ -6077,31 +6530,31 @@ async function onMove(from, to) {
 }
 function showEvaluation(fen, info, bestMove) {
   if (!info) return;
-  const sign = fen.split(" ")[1] === "w" ? 1 : -1, value = info.value * sign;
+  const sign = fen.split(" ")[1] === "w" ? 1 : -1, value2 = info.value * sign;
   const bound = info.bound === "exact" ? "" : info.bound === "lower" ? sign === 1 ? "\u2265" : "\u2264" : sign === 1 ? "\u2264" : "\u2265";
-  const label = info.type === "mate" ? `#${value}` : `${value >= 0 ? "+" : ""}${(value / 100).toFixed(2)}`;
-  $("score").textContent = bound + label;
-  $("rail-score").textContent = label;
-  $("score-explanation").textContent = info.type === "mate" ? value === 0 ? `Jaque mate \xB7 ganan ${sign === 1 ? "negras" : "blancas"}` : `Mate para ${value > 0 ? "blancas" : "negras"} en ${Math.abs(value)}` : "Evaluaci\xF3n para blancas";
-  const percentage = info.type === "mate" ? value === 0 ? sign === 1 ? 0 : 100 : value > 0 ? 100 : 0 : Math.max(4, Math.min(96, 50 + Math.tanh(value / 400) * 46));
-  $("eval-white").style.height = percentage + "%";
-  $("depth-reached").textContent = "Profundidad " + info.depth;
+  const label = info.type === "mate" ? `#${value2}` : `${value2 >= 0 ? "+" : ""}${(value2 / 100).toFixed(2)}`;
+  $2("score").textContent = bound + label;
+  $2("rail-score").textContent = label;
+  $2("score-explanation").textContent = info.type === "mate" ? value2 === 0 ? `Jaque mate \xB7 ganan ${sign === 1 ? "negras" : "blancas"}` : `Mate para ${value2 > 0 ? "blancas" : "negras"} en ${Math.abs(value2)}` : "Evaluaci\xF3n para blancas";
+  const percentage = info.type === "mate" ? value2 === 0 ? sign === 1 ? 0 : 100 : value2 > 0 ? 100 : 0 : Math.max(4, Math.min(96, 50 + Math.tanh(value2 / 400) * 46));
+  $2("eval-white").style.height = percentage + "%";
+  $2("depth-reached").textContent = "Profundidad " + info.depth;
   const pv = pvToSan(fen, info.pv);
-  $("pv").textContent = pv || "Sin variante publicada para esta posici\xF3n.";
+  $2("pv").textContent = pv || "Sin variante publicada para esta posici\xF3n.";
   const move3 = bestMove || info.pv[0];
   board.setAutoShapes(move3 && /^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move3) ? [{ orig: move3.slice(0, 2), dest: move3.slice(2, 4), brush: "paleGreen" }] : []);
 }
 function toggleButton() {
-  $("engine-toggle").textContent = enabled ? "Pausar" : "Analizar";
-  $("engine-toggle").classList.toggle("running", enabled);
-  $("engine-toggle").setAttribute("aria-label", enabled ? "Pausar an\xE1lisis" : "Iniciar an\xE1lisis");
+  $2("engine-toggle").textContent = enabled ? "Pausar" : "Analizar";
+  $2("engine-toggle").classList.toggle("running", enabled);
+  $2("engine-toggle").setAttribute("aria-label", enabled ? "Pausar an\xE1lisis" : "Iniciar an\xE1lisis");
 }
 function scheduleAnalysis() {
   clearTimeout(scheduleTimer);
   if (!enabled) return;
   const serial = ++analysisSerial;
   const fen = validateEngineFen(positionAt(doc).fen());
-  pending = { fen, depth: Number($("depth").value), serial };
+  pending = { fen, depth: Number($2("depth").value), serial };
   if (pumping) engine.stop().catch(showError);
   scheduleTimer = setTimeout(() => pump().catch(showError), 120);
 }
@@ -6146,8 +6599,8 @@ async function pump() {
 async function updateLibrary() {
   if (!storeReady) return;
   const games = (await store.all()).filter((g) => g.id !== "draft").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  $("library-count").textContent = String(games.length);
-  $("library-list").innerHTML = games.length ? games.map((g) => `<div class="library-item"><div class="library-description"><strong>${escape(g.title)}</strong><small>${g.moves.length} medias jugadas \xB7 ${escape(new Date(g.updatedAt).toLocaleDateString("es-ES"))}</small></div><button data-open="${escape(g.id)}">Abrir</button><button class="delete-button" data-delete="${escape(g.id)}" aria-label="Eliminar ${escape(g.title)}">\xD7</button></div>`).join("") : "<p>Todav\xEDa no hay partidas. Usa \xABGuardar en biblioteca\xBB para a\xF1adir la primera.</p>";
+  $2("library-count").textContent = String(games.length);
+  $2("library-list").innerHTML = games.length ? games.map((g) => `<div class="library-item"><div class="library-description"><strong>${escape(g.title)}</strong><small>${g.moves.length} medias jugadas \xB7 ${escape(new Date(g.updatedAt).toLocaleDateString("es-ES"))}</small></div><button data-open="${escape(g.id)}">Abrir</button><button class="delete-button" data-delete="${escape(g.id)}" aria-label="Eliminar ${escape(g.title)}">\xD7</button></div>`).join("") : "<p>Todav\xEDa no hay partidas. Usa \xABGuardar en biblioteca\xBB para a\xF1adir la primera.</p>";
 }
 async function makeBackup() {
   if (!storeReady) throw Error("El almacenamiento no est\xE1 disponible. Exporta al menos el PGN actual.");
@@ -6156,7 +6609,7 @@ async function makeBackup() {
   return JSON.stringify({ application: "piolin_chess", schema: 1, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), draft: structuredClone(doc), games }, null, 2);
 }
 function action(id, fn) {
-  $(id).addEventListener("click", () => Promise.resolve().then(fn).catch(showError));
+  $2(id).addEventListener("click", () => Promise.resolve().then(fn).catch(showError));
 }
 action("flip", () => {
   doc.orientation = doc.orientation === "white" ? "black" : "white";
@@ -6167,16 +6620,16 @@ action("first", () => jump(0));
 action("prev", () => jump(doc.cursor - 1));
 action("next", () => jump(doc.cursor + 1));
 action("last", () => jump(doc.moves.length));
-$("moves").addEventListener("click", (e) => {
+$2("moves").addEventListener("click", (e) => {
   const ply = e.target.closest("[data-ply]")?.dataset.ply;
   if (ply) jump(Number(ply));
 });
-$("game-title").addEventListener("input", () => {
-  doc.title = $("game-title").value;
+$2("game-title").addEventListener("input", () => {
+  doc.title = $2("game-title").value;
   markDirty();
 });
-$("notes").addEventListener("input", () => {
-  doc.notes = $("notes").value;
+$2("notes").addEventListener("input", () => {
+  doc.notes = $2("notes").value;
   markDirty();
 });
 action("new-game", async () => {
@@ -6187,46 +6640,131 @@ action("new-game", async () => {
   await flushSave();
 });
 action("analysis-tab", () => {
-  $("library-dialog").close();
-  $("board").scrollIntoView({ block: "center", behavior: "smooth" });
+  $2("library-dialog").close();
+  $2("board").scrollIntoView({ block: "center", behavior: "smooth" });
 });
 action("import-open", () => {
-  $("import-error").textContent = "";
-  $("import-dialog").showModal();
+  $2("import-error").classList.add("error");
+  $2("import-error").textContent = "";
+  $2("import-dialog").showModal();
 });
 action("load-example", () => {
-  $("import-text").value = example;
+  $2("import-text").value = example;
 });
-$("pgn-file").addEventListener("change", async (e) => {
+$2("pgn-file").addEventListener("change", async (e) => {
   try {
     const file2 = e.target.files[0];
     if (!file2) return;
     if (file2.size > 2e6) throw Error("El PGN supera 2 MB.");
-    $("import-text").value = await file2.text();
+    $2("import-text").value = await file2.text();
   } catch (err) {
-    $("import-error").textContent = err.message;
+    $2("import-error").textContent = err.message;
   } finally {
     e.target.value = "";
   }
 });
-action("import-confirm", async () => {
+function markStudyPlayer(game, name) {
+  if (!name || !game.sourcePgn) return;
+  const key = playerKey(name);
+  const white = pgnHeader(game.sourcePgn, "White"), black = pgnHeader(game.sourcePgn, "Black");
+  if (playerKey(white) === key) game.studyPlayer = white;
+  else if (playerKey(black) === key) {
+    game.studyPlayer = black;
+    game.orientation = "black";
+  }
+}
+async function importFromDialog(pgn2, studyPlayer = "") {
   try {
-    const imported = importText($("import-text").value);
+    const imported = importText(pgn2);
     if ((doc.moves.length || doc.notes) && !confirm("Cargar sustituir\xE1 la sesi\xF3n actual. Las partidas de biblioteca se conservan. \xBFContinuar?")) return;
+    markStudyPlayer(imported, studyPlayer);
     doc = imported;
     render4();
     await flushSave();
-    $("import-dialog").close();
+    $2("import-dialog").close();
     toast("Partida cargada y guardada en la sesi\xF3n.");
-  } catch (e) {
-    $("import-error").textContent = "No se pudo cargar: " + e.message;
+  } catch (error) {
+    $2("import-error").classList.add("error");
+    $2("import-error").textContent = "No se pudo cargar: " + error.message;
+  }
+}
+action("import-confirm", () => importFromDialog($2("import-text").value));
+document.addEventListener("piolin:open-online-game", (event) => {
+  const { pgn: pgn2, player } = event.detail;
+  $2("import-error").textContent = "";
+  $2("import-text").value = pgn2;
+  $2("online-dialog").close();
+  $2("import-dialog").showModal();
+  importFromDialog(pgn2, player);
+});
+var savingBatch = false;
+async function savePgnBatch(pgns, studyPlayer = "") {
+  if (!storeReady) throw Error("La Biblioteca no est\xE1 disponible.");
+  if (savingBatch) throw Error("Ya se est\xE1 guardando un lote.");
+  savingBatch = true;
+  try {
+    const keys = new Set((await store.all()).filter((game) => game.id !== "draft").map(studyGame).filter(Boolean).map((game) => game.key));
+    const games = [], batchKeys = /* @__PURE__ */ new Set();
+    let duplicates = 0, skipped = 0;
+    for (const pgn2 of pgns) {
+      try {
+        const game = importText(pgn2), metadata = studyGame(game);
+        if (!metadata) {
+          skipped++;
+          continue;
+        }
+        batchKeys.add(metadata.key);
+        if (keys.has(metadata.key)) {
+          duplicates++;
+          continue;
+        }
+        keys.add(metadata.key);
+        markStudyPlayer(game, studyPlayer);
+        games.push({ ...game, id: crypto.randomUUID() });
+      } catch {
+        skipped++;
+      }
+    }
+    if (games.length) {
+      await store.putMany(games);
+      await updateLibrary();
+      navigator.storage?.persist?.().catch(() => {
+      });
+    }
+    return { message: `${games.length} guardadas \xB7 ${duplicates} repetidas \xB7 ${skipped} no aptas para el estudio.`, batchKeys };
+  } finally {
+    savingBatch = false;
+  }
+}
+document.addEventListener("piolin:save-pgn-batch", (event) => {
+  const { pgns, player, resolve, reject } = event.detail;
+  savePgnBatch(pgns, player).then(async ({ message, batchKeys }) => {
+    if (batchKeys.size) {
+      await openStudy({ preferredPlayer: player, batchKeys });
+      $2("online-dialog").close();
+      toast(message);
+    }
+    return message;
+  }).then(resolve, reject);
+});
+action("import-batch", async () => {
+  const output = $2("import-error");
+  output.classList.remove("error");
+  output.textContent = "Guardando partidas\u2026";
+  try {
+    const pgns = $2("import-text").value.trim().split(/\n\s*\n(?=\[Event\s)/);
+    output.textContent = (await savePgnBatch(pgns)).message;
+  } catch (error) {
+    output.classList.add("error");
+    output.textContent = error.message;
   }
 });
+var openStudy = setupStudy(() => store.all().then((games) => games.filter((game) => game.id !== "draft")), showError);
 action("export-pgn", () => download("piolin_partida.pgn", exportPgn(doc), "application/x-chess-pgn"));
 action("library-open", async () => {
   if (!storeReady) throw Error("No hay almacenamiento disponible.");
   await updateLibrary();
-  $("library-dialog").showModal();
+  $2("library-dialog").showModal();
 });
 action("save-library", async () => {
   if (!storeReady) throw Error("No se puede guardar: exporta el PGN.");
@@ -6241,7 +6779,7 @@ action("save-library", async () => {
   });
   toast("Partida guardada en tu biblioteca.");
 });
-$("library-list").addEventListener("click", (e) => {
+$2("library-list").addEventListener("click", (e) => {
   (async () => {
     const id = e.target.closest("[data-open]")?.dataset.open, del = e.target.closest("[data-delete]")?.dataset.delete;
     if (id) {
@@ -6250,7 +6788,7 @@ $("library-list").addEventListener("click", (e) => {
       doc = { ...game, id: "draft", libraryId: game.id };
       render4();
       await flushSave();
-      $("library-dialog").close();
+      $2("library-dialog").close();
     }
     if (del && confirm("\xBFEliminar esta partida de la biblioteca?")) {
       await store.remove(del);
@@ -6266,8 +6804,8 @@ action("backup-export", async () => {
   download("piolin_copia_" + (/* @__PURE__ */ new Date()).toISOString().slice(0, 10) + ".json", await makeBackup());
   toast("Copia exportada. Cons\xE9rvala fuera del navegador.");
 });
-action("backup-import", () => $("backup-file").click());
-$("backup-file").addEventListener("change", (e) => {
+action("backup-import", () => $2("backup-file").click());
+$2("backup-file").addEventListener("change", (e) => {
   (async () => {
     const file2 = e.target.files[0];
     if (!file2) return;
@@ -6280,7 +6818,7 @@ $("backup-file").addEventListener("change", (e) => {
     doc = backup.draft;
     render4();
     await updateLibrary();
-    $("save-status").textContent = "\u2713 Copia restaurada";
+    $2("save-status").textContent = "\u2713 Copia restaurada";
     toast("Biblioteca y sesi\xF3n restauradas.");
   })().catch(showError).finally(() => e.target.value = "");
 });
@@ -6308,17 +6846,17 @@ var formatClock = (s) => {
   return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
 };
 function updateClocks() {
-  $("clock-top").hidden = $("clock-bottom").hidden = !(bot.active && bot.timed);
+  $2("clock-top").hidden = $2("clock-bottom").hidden = !(bot.active && bot.timed);
   if (!bot.timed) return;
   const flipped = doc.orientation === "black";
-  $("clock-top").textContent = formatClock(bot.times[flipped ? "w" : "b"]);
-  $("clock-bottom").textContent = formatClock(bot.times[flipped ? "b" : "w"]);
+  $2("clock-top").textContent = formatClock(bot.times[flipped ? "w" : "b"]);
+  $2("clock-bottom").textContent = formatClock(bot.times[flipped ? "b" : "w"]);
 }
 function endBot(message) {
   bot.active = false;
   bot.serial++;
   clearInterval(bot.clock);
-  $("mode-badge").textContent = "AN\xC1LISIS";
+  $2("mode-badge").textContent = "AN\xC1LISIS";
   if (message) toast(message);
 }
 function botTurn() {
@@ -6329,7 +6867,7 @@ async function botMove() {
   if (!botTurn() || bot.thinking) return;
   bot.thinking = true;
   const serial = ++bot.serial;
-  $("gm-advice-text").textContent = "\u{1F916} Piol\xEDn est\xE1 pensando su jugada\u2026";
+  $2("gm-advice-text").textContent = "\u{1F916} Piol\xEDn est\xE1 pensando su jugada\u2026";
   try {
     await runExclusive(async () => {
       const fen = validateEngineFen(positionAt(doc).fen()), depth = { 1: 4, 5: 7, 10: 10, 15: 13, 20: 16 }[bot.skill] || 10;
@@ -6346,7 +6884,7 @@ async function botMove() {
       doc.cursor = doc.moves.length;
       render4();
       markDirty();
-      $("gm-advice-text").textContent = `\u{1F916} Piol\xEDn ha jugado ${move3.san}. \xA1Es tu turno!`;
+      $2("gm-advice-text").textContent = `\u{1F916} Piol\xEDn ha jugado ${move3.san}. \xA1Es tu turno!`;
     });
   } catch (e) {
     if (e.name !== "AbortError") throw e;
@@ -6354,22 +6892,22 @@ async function botMove() {
     bot.thinking = false;
   }
 }
-action("play-bot-open", () => $("bot-dialog").showModal());
+action("play-bot-open", () => $2("bot-dialog").showModal());
 action("bot-start", async () => {
   if (doc.moves.length && !confirm("Empezar una partida nueva sustituir\xE1 la sesi\xF3n actual. \xBFContinuar?")) return;
   await engine.init();
-  const human = $("bot-color").value === "b" ? "b" : "w", seconds = Number($("bot-time").value) || 0;
+  const human = $2("bot-color").value === "b" ? "b" : "w", seconds = Number($2("bot-time").value) || 0;
   endBot();
   bot.color = human === "w" ? "b" : "w";
-  bot.skill = Number($("bot-strength").value);
+  bot.skill = Number($2("bot-strength").value);
   bot.timed = seconds > 0;
   bot.times = { w: seconds, b: seconds };
   doc = newDocument();
   doc.orientation = human === "w" ? "white" : "black";
   doc.title = "Partida vs Piol\xEDn (nivel " + ({ 1: 1, 5: 2, 10: 3, 15: 4, 20: 5 }[bot.skill] || 3) + ")";
   bot.active = true;
-  $("mode-badge").textContent = "VS M\xC1QUINA";
-  $("bot-dialog").close();
+  $2("mode-badge").textContent = "VS M\xC1QUINA";
+  $2("bot-dialog").close();
   clearInterval(bot.clock);
   if (bot.timed) bot.clock = setInterval(() => {
     if (!bot.active) return;
@@ -6385,7 +6923,7 @@ action("bot-start", async () => {
 action("bot-stop", () => {
   endBot();
   render4();
-  $("bot-dialog").close();
+  $2("bot-dialog").close();
 });
 var mistakes = [];
 var mistakeCursor = -1;
@@ -6400,17 +6938,17 @@ async function auditGame() {
     return;
   }
   const serial = ++auditSerial, moves = [...doc.moves], depth = Math.min(doc.depth || 14, 12);
-  $("mistakes-panel").hidden = false;
-  $("mistakes-list").innerHTML = "";
+  $2("mistakes-panel").hidden = false;
+  $2("mistakes-list").innerHTML = "";
   mistakes = [];
   mistakeCursor = -1;
-  $("gm-audit-btn").disabled = true;
+  $2("gm-audit-btn").disabled = true;
   try {
     await runExclusive(async () => {
       const evals = [];
       for (let i = 0; i <= moves.length; i++) {
         if (serial !== auditSerial) return;
-        $("mistakes-summary").textContent = `Revisando posici\xF3n ${i + 1} de ${moves.length + 1}\u2026`;
+        $2("mistakes-summary").textContent = `Revisando posici\xF3n ${i + 1} de ${moves.length + 1}\u2026`;
         const fen = validateEngineFen(positionAt({ initialFen: doc.initialFen, moves }, i).fen()), r = await engine.analyze(fen, depth);
         if (serial !== auditSerial) return;
         evals.push(r.evaluation ? clampCp(r.evaluation) * (fen.split(" ")[1] === "w" ? 1 : -1) : 0);
@@ -6423,15 +6961,15 @@ async function auditGame() {
         const num = Math.floor((start5 + i - 1) / 2) + 1;
         mistakes.push({ ply: i, label: `${num}${white ? "." : "..."} ${moves[i - 1]}`, loss: (loss / 100).toFixed(2), ...type });
       }
-      $("mistakes-summary").textContent = `Fallos encontrados: ${mistakes.length}`;
-      $("mistakes-list").innerHTML = mistakes.length ? mistakes.map((m) => `<div class="mistake-item" data-mistake-ply="${m.ply}"><span><strong>${escape(m.label)}</strong> (pierde ${m.loss} peones)</span><span class="${m.cls}">${m.tag}</span></div>`).join("") : '<p style="font-size:12px;margin:4px 0;">Partida muy precisa: no se detectaron p\xE9rdidas relevantes.</p>';
+      $2("mistakes-summary").textContent = `Fallos encontrados: ${mistakes.length}`;
+      $2("mistakes-list").innerHTML = mistakes.length ? mistakes.map((m) => `<div class="mistake-item" data-mistake-ply="${m.ply}"><span><strong>${escape(m.label)}</strong> (pierde ${m.loss} peones)</span><span class="${m.cls}">${m.tag}</span></div>`).join("") : '<p style="font-size:12px;margin:4px 0;">Partida muy precisa: no se detectaron p\xE9rdidas relevantes.</p>';
     });
   } finally {
-    $("gm-audit-btn").disabled = false;
+    $2("gm-audit-btn").disabled = false;
   }
 }
 action("gm-audit-btn", auditGame);
-$("mistakes-list").addEventListener("click", (e) => {
+$2("mistakes-list").addEventListener("click", (e) => {
   const ply = e.target.closest("[data-mistake-ply]")?.dataset.mistakePly;
   if (ply) jump(Number(ply));
 });
@@ -6440,7 +6978,7 @@ action("next-mistake-btn", () => {
   mistakeCursor = (mistakeCursor + 1) % mistakes.length;
   jump(mistakes[mistakeCursor].ply);
 });
-action("help-open", () => $("help-dialog").showModal());
+action("help-open", () => $2("help-dialog").showModal());
 action("engine-toggle", async () => {
   enabled = !enabled;
   toggleButton();
@@ -6453,8 +6991,8 @@ action("engine-toggle", async () => {
     engineStatus(engine.label + " \xB7 en pausa");
   }
 });
-$("depth").addEventListener("change", () => {
-  doc.depth = Number($("depth").value);
+$2("depth").addEventListener("change", () => {
+  doc.depth = Number($2("depth").value);
   markDirty();
   scheduleAnalysis();
 });
@@ -6464,10 +7002,10 @@ action("retry-engine", async () => {
   analysisSerial++;
   engine.destroy();
   engine = makeEngine(engineMode);
-  $("engine-toggle").disabled = true;
+  $2("engine-toggle").disabled = true;
   await engine.init();
-  $("engine-toggle").disabled = false;
-  $("retry-engine").hidden = true;
+  $2("engine-toggle").disabled = false;
+  $2("retry-engine").hidden = true;
   toggleButton();
 });
 document.addEventListener("keydown", (e) => {
@@ -6503,8 +7041,8 @@ window.addEventListener("pagehide", () => {
 window.addEventListener("beforeunload", () => engine.destroy());
 async function start4() {
   if (await registerWorker()) return;
-  $("origin-warning").hidden = location.protocol !== "file:";
-  board = Chessground($("board"), {
+  $2("origin-warning").hidden = location.protocol !== "file:";
+  board = Chessground($2("board"), {
     fen: doc.initialFen,
     orientation: "white",
     coordinates: true,
@@ -6518,16 +7056,16 @@ async function start4() {
     storeReady = true;
     const saved = await store.get("draft");
     if (saved) doc = validateDocument(saved);
-    $("save-status").textContent = saved ? "\u2713 Sesi\xF3n recuperada" : "\u2713 Guardado local preparado";
+    $2("save-status").textContent = saved ? "\u2713 Sesi\xF3n recuperada" : "\u2713 Guardado local preparado";
     await updateLibrary();
   } catch (e) {
-    $("save-status").textContent = "No se pudo recuperar: exporta antes de cambiar";
+    $2("save-status").textContent = "No se pudo recuperar: exporta antes de cambiar";
     toast("Datos locales: " + e.message);
   }
   render4();
   engine.init().then(() => {
-    $("engine-toggle").disabled = false;
-    $("gm-audit-btn").disabled = false;
+    $2("engine-toggle").disabled = false;
+    $2("gm-audit-btn").disabled = false;
     engineStatus(engine.label + " \xB7 motor preparado");
     return ensureFullEngine();
   }).catch((e) => {
