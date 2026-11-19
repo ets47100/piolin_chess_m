@@ -5642,6 +5642,10 @@ var LocalEngine = class {
       throw e;
     }
   }
+  setOption(name, value) {
+    if (!/^[A-Za-z ]+$/.test(name) || !/^[\w.-]+$/.test(String(value))) throw Error("Opci\xF3n UCI no v\xE1lida.");
+    this.send("setoption name " + name + " value " + value);
+  }
   send(command) {
     if (this.dead || !this.worker) throw Error("El motor no est\xE1 disponible.");
     this.worker.postMessage(command);
@@ -5792,6 +5796,7 @@ var scheduleTimer;
 var lastResult = null;
 var escape = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 var example = '[Event "Miniatura de ejemplo"]\n[White "Blancas"]\n[Black "Negras"]\n[Result "1-0"]\n\n1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0';
+var bot = { active: false, color: "b", skill: 10, thinking: false, serial: 0, clock: null, times: { w: 0, b: 0 }, timed: false };
 var toastTimer;
 function toast(text) {
   $("toast").textContent = text;
@@ -5857,8 +5862,10 @@ function render4() {
     turnColor: chess.turn() === "w" ? "white" : "black",
     lastMove: last ? [last.from, last.to] : void 0,
     check: chess.inCheck(),
-    movable: { free: false, color: chess.turn() === "w" ? "white" : "black", dests: legalDests(chess) }
+    movable: { free: false, color: bot.active && (chess.turn() === bot.color || doc.cursor < doc.moves.length) ? void 0 : chess.turn() === "w" ? "white" : "black", dests: legalDests(chess) }
   });
+  if (bot.active && chess.isGameOver()) endBot();
+  updateClocks();
   $("game-title").value = doc.title;
   $("notes").value = doc.notes;
   $("depth").value = String(doc.depth || 14);
@@ -5891,7 +5898,12 @@ function renderMoves() {
     rows.get(num)[absolute % 2] = `<button class="move-button${doc.cursor === i + 1 ? " selected" : ""}" data-ply="${i + 1}" aria-label="Ir a ${escape(san)}">${escape(san)}</button>`;
   });
   $("moves").innerHTML = [...rows].map(([n, ms]) => `<div class="move-row"><span class="move-num">${n}.</span>${ms[0] || "<span></span>"}${ms[1] || "<span></span>"}</div>`).join("");
-  $("moves").querySelector(".selected")?.scrollIntoView({ block: "nearest" });
+  const list = $("moves"), sel = list.querySelector(".selected");
+  if (sel) {
+    const l = list.getBoundingClientRect(), s = sel.getBoundingClientRect();
+    if (s.top < l.top) list.scrollTop -= l.top - s.top;
+    else if (s.bottom > l.bottom) list.scrollTop += s.bottom - l.bottom;
+  }
 }
 function jump(cursor) {
   doc.cursor = Math.max(0, Math.min(doc.moves.length, cursor));
@@ -5944,6 +5956,7 @@ async function onMove(from, to) {
     doc.cursor = doc.moves.length;
     render4();
     markDirty();
+    botMove().catch(showError);
   } catch (e) {
     render4();
     showError(e);
@@ -6158,6 +6171,162 @@ $("backup-file").addEventListener("change", (e) => {
     toast("Biblioteca y sesi\xF3n restauradas.");
   })().catch(showError).finally(() => e.target.value = "");
 });
+async function runExclusive(fn) {
+  const was = enabled;
+  enabled = false;
+  pending = null;
+  analysisSerial++;
+  clearTimeout(scheduleTimer);
+  toggleButton();
+  await engine.stop();
+  while (pumping) await new Promise((r) => setTimeout(r, 25));
+  try {
+    return await fn();
+  } finally {
+    if (was) {
+      enabled = true;
+      toggleButton();
+      scheduleAnalysis();
+    }
+  }
+}
+var formatClock = (s) => {
+  s = Math.max(0, s);
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+};
+function updateClocks() {
+  $("clock-top").hidden = $("clock-bottom").hidden = !(bot.active && bot.timed);
+  if (!bot.timed) return;
+  const flipped = doc.orientation === "black";
+  $("clock-top").textContent = formatClock(bot.times[flipped ? "w" : "b"]);
+  $("clock-bottom").textContent = formatClock(bot.times[flipped ? "b" : "w"]);
+}
+function endBot(message) {
+  bot.active = false;
+  bot.serial++;
+  clearInterval(bot.clock);
+  $("mode-badge").textContent = "AN\xC1LISIS";
+  if (message) toast(message);
+}
+function botTurn() {
+  const chess = positionAt(doc);
+  return bot.active && doc.cursor === doc.moves.length && chess.turn() === bot.color && !chess.isGameOver();
+}
+async function botMove() {
+  if (!botTurn() || bot.thinking) return;
+  bot.thinking = true;
+  const serial = ++bot.serial;
+  $("gm-advice-text").textContent = "\u{1F916} Piol\xEDn est\xE1 pensando su jugada\u2026";
+  try {
+    await runExclusive(async () => {
+      const fen = validateEngineFen(positionAt(doc).fen()), depth = { 1: 4, 5: 7, 10: 10, 15: 13, 20: 16 }[bot.skill] || 10;
+      engine.setOption("Skill Level", bot.skill);
+      let result;
+      try {
+        result = await engine.analyze(fen, depth);
+      } finally {
+        if (!engine.dead) engine.setOption("Skill Level", 20);
+      }
+      if (serial !== bot.serial || !botTurn() || !result.bestMove) return;
+      const chess = positionAt(doc), move3 = chess.move({ from: result.bestMove.slice(0, 2), to: result.bestMove.slice(2, 4), promotion: result.bestMove[4] });
+      doc.moves.push(move3.san);
+      doc.cursor = doc.moves.length;
+      render4();
+      markDirty();
+      $("gm-advice-text").textContent = `\u{1F916} Piol\xEDn ha jugado ${move3.san}. \xA1Es tu turno!`;
+    });
+  } catch (e) {
+    if (e.name !== "AbortError") throw e;
+  } finally {
+    bot.thinking = false;
+  }
+}
+action("play-bot-open", () => $("bot-dialog").showModal());
+action("bot-start", async () => {
+  if (doc.moves.length && !confirm("Empezar una partida nueva sustituir\xE1 la sesi\xF3n actual. \xBFContinuar?")) return;
+  await engine.init();
+  const human = $("bot-color").value === "b" ? "b" : "w", seconds = Number($("bot-time").value) || 0;
+  endBot();
+  bot.color = human === "w" ? "b" : "w";
+  bot.skill = Number($("bot-strength").value);
+  bot.timed = seconds > 0;
+  bot.times = { w: seconds, b: seconds };
+  doc = newDocument();
+  doc.orientation = human === "w" ? "white" : "black";
+  doc.title = "Partida vs Piol\xEDn (nivel " + ({ 1: 1, 5: 2, 10: 3, 15: 4, 20: 5 }[bot.skill] || 3) + ")";
+  bot.active = true;
+  $("mode-badge").textContent = "VS M\xC1QUINA";
+  $("bot-dialog").close();
+  clearInterval(bot.clock);
+  if (bot.timed) bot.clock = setInterval(() => {
+    if (!bot.active) return;
+    const turn = positionAt(doc).turn();
+    bot.times[turn]--;
+    updateClocks();
+    if (bot.times[turn] <= 0) endBot(turn === "w" ? "\xA1Tiempo agotado para las blancas!" : "\xA1Tiempo agotado para las negras!");
+  }, 1e3);
+  render4();
+  await flushSave();
+  await botMove();
+});
+action("bot-stop", () => {
+  endBot();
+  render4();
+  $("bot-dialog").close();
+});
+var mistakes = [];
+var mistakeCursor = -1;
+var auditSerial = 0;
+var clampCp = (info) => {
+  const v = info.type === "mate" ? (info.value > 0 ? 1 : -1) * 1e3 : info.value;
+  return Math.max(-1e3, Math.min(1e3, v));
+};
+async function auditGame() {
+  if (!doc.moves.length) {
+    toast("Carga o juega primero una partida para revisar sus fallos.");
+    return;
+  }
+  const serial = ++auditSerial, moves = [...doc.moves], depth = Math.min(doc.depth || 14, 12);
+  $("mistakes-panel").hidden = false;
+  $("mistakes-list").innerHTML = "";
+  mistakes = [];
+  mistakeCursor = -1;
+  $("gm-audit-btn").disabled = true;
+  try {
+    await runExclusive(async () => {
+      const evals = [];
+      for (let i = 0; i <= moves.length; i++) {
+        if (serial !== auditSerial) return;
+        $("mistakes-summary").textContent = `Revisando posici\xF3n ${i + 1} de ${moves.length + 1}\u2026`;
+        const fen = validateEngineFen(positionAt({ initialFen: doc.initialFen, moves }, i).fen()), r = await engine.analyze(fen, depth);
+        if (serial !== auditSerial) return;
+        evals.push(r.evaluation ? clampCp(r.evaluation) * (fen.split(" ")[1] === "w" ? 1 : -1) : 0);
+      }
+      const fields = doc.initialFen.split(" "), start5 = (Number(fields[5]) - 1) * 2 + (fields[1] === "b" ? 1 : 0);
+      for (let i = 1; i <= moves.length; i++) {
+        const white = (start5 + i - 1) % 2 === 0, loss = (evals[i - 1] - evals[i]) * (white ? 1 : -1);
+        if (loss < 75) continue;
+        const type = loss >= 300 ? { tag: "?? Grave", cls: "badge-blunder" } : loss >= 150 ? { tag: "? Error", cls: "badge-mistake" } : { tag: "?! Imprecisi\xF3n", cls: "badge-inaccuracy" };
+        const num = Math.floor((start5 + i - 1) / 2) + 1;
+        mistakes.push({ ply: i, label: `${num}${white ? "." : "..."} ${moves[i - 1]}`, loss: (loss / 100).toFixed(2), ...type });
+      }
+      $("mistakes-summary").textContent = `Fallos encontrados: ${mistakes.length}`;
+      $("mistakes-list").innerHTML = mistakes.length ? mistakes.map((m) => `<div class="mistake-item" data-mistake-ply="${m.ply}"><span><strong>${escape(m.label)}</strong> (pierde ${m.loss} peones)</span><span class="${m.cls}">${m.tag}</span></div>`).join("") : '<p style="font-size:12px;margin:4px 0;">Partida muy precisa: no se detectaron p\xE9rdidas relevantes.</p>';
+    });
+  } finally {
+    $("gm-audit-btn").disabled = false;
+  }
+}
+action("gm-audit-btn", auditGame);
+$("mistakes-list").addEventListener("click", (e) => {
+  const ply = e.target.closest("[data-mistake-ply]")?.dataset.mistakePly;
+  if (ply) jump(Number(ply));
+});
+action("next-mistake-btn", () => {
+  if (!mistakes.length) return;
+  mistakeCursor = (mistakeCursor + 1) % mistakes.length;
+  jump(mistakes[mistakeCursor].ply);
+});
 action("help-open", () => $("help-dialog").showModal());
 action("engine-toggle", async () => {
   enabled = !enabled;
@@ -6244,6 +6413,7 @@ async function start4() {
   render4();
   engine.init().then(() => {
     $("engine-toggle").disabled = false;
+    $("gm-audit-btn").disabled = false;
     engineStatus("Stockfish 19 completo \xB7 motor preparado");
   }).catch((e) => {
     engineStatus(e.message);

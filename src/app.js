@@ -9,6 +9,7 @@ const store=new LocalStore();let storeReady=false,doc=newDocument(),board,dirtyT
 let enabled=false,pumping=false,pending=null,analysisSerial=0,scheduleTimer,lastResult=null;
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const example='[Event "Miniatura de ejemplo"]\n[White "Blancas"]\n[Black "Negras"]\n[Result "1-0"]\n\n1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0';
+const bot={active:false,color:'b',skill:10,thinking:false,serial:0,clock:null,times:{w:0,b:0},timed:false};
 let toastTimer;
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function engineStatus(text){
@@ -45,7 +46,9 @@ function render(){
   const chess=positionAt(doc),history=chess.history({verbose:true}),last=history.at(-1);
   board.set({fen:chess.fen(),orientation:doc.orientation,turnColor:chess.turn()==='w'?'white':'black',
     lastMove:last?[last.from,last.to]:undefined,check:chess.inCheck(),
-    movable:{free:false,color:chess.turn()==='w'?'white':'black',dests:legalDests(chess)}});
+    movable:{free:false,color:bot.active&&(chess.turn()===bot.color||doc.cursor<doc.moves.length)?undefined:chess.turn()==='w'?'white':'black',dests:legalDests(chess)}});
+  if(bot.active&&chess.isGameOver())endBot();
+  updateClocks();
   $('game-title').value=doc.title;$('notes').value=doc.notes;$('depth').value=String(doc.depth||14);
   const flipped=doc.orientation==='black';$('top-player').textContent=flipped?'Blancas':'Negras';$('bottom-player').textContent=flipped?'Negras':'Blancas';
   $('turn-status').textContent=chess.isCheckmate()?'Jaque mate':chess.isStalemate()?'Ahogado':chess.isDraw()?'Tablas':`Juegan ${chess.turn()==='w'?'blancas':'negras'}${chess.inCheck()?' · jaque':''}`;
@@ -63,7 +66,11 @@ function renderMoves(){
     rows.get(num)[absolute%2]=`<button class="move-button${doc.cursor===i+1?' selected':''}" data-ply="${i+1}" aria-label="Ir a ${escape(san)}">${escape(san)}</button>`;
   });
   $('moves').innerHTML=[...rows].map(([n,ms])=>`<div class="move-row"><span class="move-num">${n}.</span>${ms[0]||'<span></span>'}${ms[1]||'<span></span>'}</div>`).join('');
-  $('moves').querySelector('.selected')?.scrollIntoView({block:'nearest'});
+  const list=$('moves'),sel=list.querySelector('.selected');
+  if(sel){ // desplaza solo la lista; scrollIntoView movía toda la página y ocultaba el tablero
+    const l=list.getBoundingClientRect(),s=sel.getBoundingClientRect();
+    if(s.top<l.top)list.scrollTop-=l.top-s.top;else if(s.bottom>l.bottom)list.scrollTop+=s.bottom-l.bottom;
+  }
 }
 function jump(cursor){doc.cursor=Math.max(0,Math.min(doc.moves.length,cursor));render();markDirty();}
 async function choosePromotion(){
@@ -87,7 +94,7 @@ async function onMove(from,to){
     if(candidates.some(m=>m.promotion)){render();promotion=await choosePromotion();if(!promotion)return;}
     if(doc.cursor<doc.moves.length&&!confirm('Jugar aquí sustituirá la continuación de la sesión actual. Las partidas guardadas en biblioteca se conservan. ¿Continuar?')){render();return;}
     const move=chess.move({from,to,promotion});doc.moves=doc.moves.slice(0,doc.cursor);doc.moves.push(move.san);doc.cursor=doc.moves.length;
-    render();markDirty();
+    render();markDirty();botMove().catch(showError);
   }catch(e){render();showError(e);}
 }
 function showEvaluation(fen,info,bestMove){
@@ -188,6 +195,92 @@ $('backup-file').addEventListener('change',e=>{(async()=>{
   download('piolin_antes_de_restaurar.json',await makeBackup());
   await store.restore(backup);doc=backup.draft;render();await updateLibrary();$('save-status').textContent='✓ Copia restaurada';toast('Biblioteca y sesión restauradas.');
 })().catch(showError).finally(()=>e.target.value='');});
+// Pausa el análisis en vivo, ejecuta fn con el motor libre y lo reanuda.
+async function runExclusive(fn){
+  const was=enabled;enabled=false;pending=null;analysisSerial++;clearTimeout(scheduleTimer);toggleButton();
+  await engine.stop();while(pumping)await new Promise(r=>setTimeout(r,25));
+  try{return await fn();}finally{if(was){enabled=true;toggleButton();scheduleAnalysis();}}
+}
+const formatClock=s=>{s=Math.max(0,s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');};
+function updateClocks(){
+  $('clock-top').hidden=$('clock-bottom').hidden=!(bot.active&&bot.timed);
+  if(!bot.timed)return;
+  const flipped=doc.orientation==='black';
+  $('clock-top').textContent=formatClock(bot.times[flipped?'w':'b']);$('clock-bottom').textContent=formatClock(bot.times[flipped?'b':'w']);
+}
+function endBot(message){
+  bot.active=false;bot.serial++;clearInterval(bot.clock);$('mode-badge').textContent='ANÁLISIS';
+  if(message)toast(message);
+}
+function botTurn(){const chess=positionAt(doc);return bot.active&&doc.cursor===doc.moves.length&&chess.turn()===bot.color&&!chess.isGameOver();}
+async function botMove(){
+  if(!botTurn()||bot.thinking)return;
+  bot.thinking=true;const serial=++bot.serial;$('gm-advice-text').textContent='🤖 Piolín está pensando su jugada…';
+  try{
+    await runExclusive(async()=>{
+      const fen=validateEngineFen(positionAt(doc).fen()),depth={1:4,5:7,10:10,15:13,20:16}[bot.skill]||10;
+      engine.setOption('Skill Level',bot.skill);
+      let result;
+      try{result=await engine.analyze(fen,depth);}finally{if(!engine.dead)engine.setOption('Skill Level',20);}
+      if(serial!==bot.serial||!botTurn()||!result.bestMove)return;
+      const chess=positionAt(doc),move=chess.move({from:result.bestMove.slice(0,2),to:result.bestMove.slice(2,4),promotion:result.bestMove[4]});
+      doc.moves.push(move.san);doc.cursor=doc.moves.length;render();markDirty();
+      $('gm-advice-text').textContent=`🤖 Piolín ha jugado ${move.san}. ¡Es tu turno!`;
+    });
+  }catch(e){if(e.name!=='AbortError')throw e;}
+  finally{bot.thinking=false;}
+}
+action('play-bot-open',()=>$('bot-dialog').showModal());
+action('bot-start',async()=>{
+  if(doc.moves.length&&!confirm('Empezar una partida nueva sustituirá la sesión actual. ¿Continuar?'))return;
+  await engine.init();
+  const human=$('bot-color').value==='b'?'b':'w',seconds=Number($('bot-time').value)||0;
+  endBot();bot.color=human==='w'?'b':'w';bot.skill=Number($('bot-strength').value);bot.timed=seconds>0;bot.times={w:seconds,b:seconds};
+  doc=newDocument();doc.orientation=human==='w'?'white':'black';doc.title='Partida vs Piolín (nivel '+({1:1,5:2,10:3,15:4,20:5}[bot.skill]||3)+')';
+  bot.active=true;$('mode-badge').textContent='VS MÁQUINA';$('bot-dialog').close();
+  clearInterval(bot.clock);
+  if(bot.timed)bot.clock=setInterval(()=>{
+    if(!bot.active)return;
+    const turn=positionAt(doc).turn();bot.times[turn]--;updateClocks();
+    if(bot.times[turn]<=0)endBot(turn==='w'?'¡Tiempo agotado para las blancas!':'¡Tiempo agotado para las negras!');
+  },1000);
+  render();await flushSave();await botMove();
+});
+action('bot-stop',()=>{endBot();render();$('bot-dialog').close();});
+
+// Revisión de fallos: analiza cada posición de la partida con el motor.
+let mistakes=[],mistakeCursor=-1,auditSerial=0;
+const clampCp=info=>{const v=info.type==='mate'?(info.value>0?1:-1)*1000:info.value;return Math.max(-1000,Math.min(1000,v));};
+async function auditGame(){
+  if(!doc.moves.length){toast('Carga o juega primero una partida para revisar sus fallos.');return;}
+  const serial=++auditSerial,moves=[...doc.moves],depth=Math.min(doc.depth||14,12);
+  $('mistakes-panel').hidden=false;$('mistakes-list').innerHTML='';mistakes=[];mistakeCursor=-1;$('gm-audit-btn').disabled=true;
+  try{
+    await runExclusive(async()=>{
+      const evals=[];
+      for(let i=0;i<=moves.length;i++){
+        if(serial!==auditSerial)return;
+        $('mistakes-summary').textContent=`Revisando posición ${i+1} de ${moves.length+1}…`;
+        const fen=validateEngineFen(positionAt({initialFen:doc.initialFen,moves},i).fen()),r=await engine.analyze(fen,depth);
+        if(serial!==auditSerial)return;
+        evals.push(r.evaluation?clampCp(r.evaluation)*(fen.split(' ')[1]==='w'?1:-1):0);
+      }
+      const fields=doc.initialFen.split(' '),start=(Number(fields[5])-1)*2+(fields[1]==='b'?1:0);
+      for(let i=1;i<=moves.length;i++){
+        const white=(start+i-1)%2===0,loss=(evals[i-1]-evals[i])*(white?1:-1);
+        if(loss<75)continue;
+        const type=loss>=300?{tag:'?? Grave',cls:'badge-blunder'}:loss>=150?{tag:'? Error',cls:'badge-mistake'}:{tag:'?! Imprecisión',cls:'badge-inaccuracy'};
+        const num=Math.floor((start+i-1)/2)+1;
+        mistakes.push({ply:i,label:`${num}${white?'.':'...'} ${moves[i-1]}`,loss:(loss/100).toFixed(2),...type});
+      }
+      $('mistakes-summary').textContent=`Fallos encontrados: ${mistakes.length}`;
+      $('mistakes-list').innerHTML=mistakes.length?mistakes.map(m=>`<div class="mistake-item" data-mistake-ply="${m.ply}"><span><strong>${escape(m.label)}</strong> (pierde ${m.loss} peones)</span><span class="${m.cls}">${m.tag}</span></div>`).join(''):'<p style="font-size:12px;margin:4px 0;">Partida muy precisa: no se detectaron pérdidas relevantes.</p>';
+    });
+  }finally{$('gm-audit-btn').disabled=false;}
+}
+action('gm-audit-btn',auditGame);
+$('mistakes-list').addEventListener('click',e=>{const ply=e.target.closest('[data-mistake-ply]')?.dataset.mistakePly;if(ply)jump(Number(ply));});
+action('next-mistake-btn',()=>{if(!mistakes.length)return;mistakeCursor=(mistakeCursor+1)%mistakes.length;jump(mistakes[mistakeCursor].ply);});
 action('help-open',()=>$('help-dialog').showModal());
 action('engine-toggle',async()=>{
   enabled=!enabled;toggleButton();
@@ -215,6 +308,6 @@ async function start(){
   try{await store.open();storeReady=true;const saved=await store.get('draft');if(saved)doc=validateDocument(saved);$('save-status').textContent=saved?'✓ Sesión recuperada':'✓ Guardado local preparado';await updateLibrary();}
   catch(e){$('save-status').textContent='No se pudo recuperar: exporta antes de cambiar';toast('Datos locales: '+e.message);}
   render();
-  engine.init().then(()=>{$('engine-toggle').disabled=false;engineStatus('Stockfish 19 completo · motor preparado');}).catch(e=>{engineStatus(e.message);showError(e);});
+  engine.init().then(()=>{$('engine-toggle').disabled=false;$('gm-audit-btn').disabled=false;engineStatus('Stockfish 19 completo · motor preparado');}).catch(e=>{engineStatus(e.message);showError(e);});
 }
 start().catch(showError);

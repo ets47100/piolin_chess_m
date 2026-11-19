@@ -35,6 +35,10 @@ export class LocalEngine {
       this.ready=true;this.onStatus('Stockfish 19 completo · preparado');
     }catch(e){this._fail(e);throw e;}
   }
+  setOption(name,value){
+    if(!/^[A-Za-z ]+$/.test(name)||!/^[\w.-]+$/.test(String(value)))throw Error('Opción UCI no válida.');
+    this.send('setoption name '+name+' value '+value);
+  }
   send(command){if(this.dead||!this.worker)throw Error('El motor no está disponible.');this.worker.postMessage(command);}
   _command(command,expected,ms){
     return new Promise((resolve,reject)=>{
