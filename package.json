@@ -1,0 +1,16 @@
+{
+  "name": "piolin-chess-m",
+  "version": "0.1.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "build": "esbuild src/app.js --bundle --format=esm --sourcemap --outfile=app.js --legal-comments=eof"
+  },
+  "dependencies": {
+    "@lichess-org/chessground": "*",
+    "chess.js": "*"
+  },
+  "devDependencies": {
+    "esbuild": "*"
+  }
+}

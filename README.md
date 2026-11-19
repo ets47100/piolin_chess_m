@@ -6,10 +6,17 @@ Demo: https://ets47100.github.io/piolin_chess_m/
 
 ## Estructura
 - `index.html`, `style.css`, `chessground.css`: interfaz.
-- `app.js`: bundle generado (Chessground + chess.js + lógica); sin fuentes en el repo todavía.
+- `src/`: fuentes (`app.js`, `model.js`, `storage.js`, `engine.js`).
+- `app.js`: bundle generado con esbuild; no editar a mano.
 - `piolin-extras.js`: modo contra máquina, relojes y auditoría GM.
 - `engine/`: carga de Stockfish (WASM, vía CDN).
 - `sw.js`, `manifest.json`: PWA offline.
+
+## Desarrollo
+```
+npm install
+npm run build   # genera app.js y app.js.map
+```
 
 ## Hoja de ruta
 Repertorios → entrenamiento → repetición espaciada y estadísticas → ejercicios automáticos desde errores.
