@@ -5624,7 +5624,7 @@ var LocalEngine = class {
   async _init() {
     if (this.dead) throw Error("El motor est\xE1 cerrado. Recarga la aplicaci\xF3n.");
     this.onStatus("Cargando Stockfish completo\u2026");
-    this.worker = this.workerFactory("engine/stockfish-19-single.js");
+    this.worker = this.workerFactory("engine/stockfish-19-lite-single.js");
     this.worker.onmessage = (event) => {
       for (const line of String(event.data).split(/[\r\n]+/)) this._line(line.trim());
     };
