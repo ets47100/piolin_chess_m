@@ -19,7 +19,7 @@
     <button id="analysis-tab" class="nav-button active">Tablero</button>
     <button id="online-open" class="nav-button">Lichess / Chess.com</button>
     <button id="library-open" class="nav-button">Biblioteca <span id="library-count" class="count">0</span></button>
-<span style="font-size: 12px; opacity: 0.7; margin-left: 8px;">v3.0.0</span>
+    <span id="app-version"></span>
   </nav>
   <button id="install-app" type="button" class="primary" hidden>Instalar</button>
 </header>
@@ -28,10 +28,10 @@
   <section class="workspace" aria-label="Tablero de análisis">
     <div class="board-column">
       <div class="player-strip">
-        <span class="avatar">♚</span>
+        <span id="top-avatar" class="avatar" aria-hidden="true">♚</span>
         <div>
           <strong id="top-player">Negras</strong>
-          <small id="top-caption">Posición de análisis</small>
+          <small id="top-caption"></small>
         </div>
         <span id="clock-top" class="chess-clock" hidden>10:00</span>
         <button id="flip" class="icon-button" title="Girar tablero" aria-label="Girar tablero">⇅</button>
@@ -46,9 +46,10 @@
       </div>
 
       <div class="player-strip bottom-player">
-        <span class="avatar">♔</span>
+        <span id="bottom-avatar" class="avatar" aria-hidden="true">♔</span>
         <div>
           <strong id="bottom-player">Blancas</strong>
+          <small id="bottom-caption"></small>
           <small id="turn-status">Juegan blancas</small>
         </div>
         <span id="clock-bottom" class="chess-clock" hidden>10:00</span>
@@ -228,6 +229,7 @@
   <p id="online-status" class="status-msg"></p>
   <div class="dialog-footer">
     <button id="online-fetch-btn" type="button" class="primary">Buscar y Descargar Partidas</button>
+    <button id="online-save-all" type="button" hidden>Guardar lote y estudiar</button>
   </div>
   <div id="online-results" class="online-results"></div>
 </dialog>
@@ -242,6 +244,7 @@
   <p id="import-error" class="error" role="alert"></p>
   <div class="dialog-footer">
     <button id="load-example" type="button">Ejemplo</button>
+    <button id="import-batch" type="button">Guardar PGN en Biblioteca</button>
     <button id="import-confirm" type="button" class="primary">Cargar</button>
   </div>
 </dialog>
@@ -251,7 +254,68 @@
     <h2>Mi biblioteca (<span id="lib-modal-count">0</span>)</h2>
     <button aria-label="Cerrar">×</button>
   </form>
+  <button id="study-open" type="button" class="primary">Estudiar jugador</button>
   <div id="library-list"></div>
+</dialog>
+
+<dialog id="study-dialog">
+  <form method="dialog" class="dialog-header">
+    <h2>Estudiar jugador</h2>
+    <button aria-label="Cerrar">×</button>
+  </form>
+  <form id="study-form">
+    <div class="form-grid">
+      <label>Jugador <select id="study-player"></select></label>
+      <label>Ritmo
+        <select id="study-rhythm">
+          <option value="all">Todos, por separado</option>
+          <option value="bullet">Bala</option>
+          <option value="blitz">Blitz</option>
+          <option value="rapid">Rápidas</option>
+          <option value="classical">Clásicas</option>
+          <option value="daily">Por correspondencia</option>
+          <option value="unknown">Sin identificar</option>
+        </select>
+      </label>
+      <label>Color
+        <select id="study-color">
+          <option value="all">Ambos</option>
+          <option value="w">Blancas</option>
+          <option value="b">Negras</option>
+        </select>
+      </label>
+      <label>Partidas
+        <select id="study-limit">
+          <option value="10">Últimas 10</option>
+          <option value="50">Últimas 50</option>
+          <option value="100">Últimas 100</option>
+          <option value="all">Todas</option>
+        </select>
+      </label>
+    </div>
+    <label id="study-scope" hidden><input id="study-only-batch" type="checkbox"> Solo este lote</label>
+    <div class="dialog-footer">
+      <button id="study-start" class="primary" type="submit">Analizar partidas</button>
+      <button id="study-pause" type="button" disabled>Pausar análisis</button>
+    </div>
+  </form>
+  <p id="study-status" role="status"></p>
+  <progress id="study-progress" aria-label="Progreso del estudio" value="0" hidden></progress>
+  <div id="study-results"></div>
+</dialog>
+
+<dialog id="study-exercise">
+  <form method="dialog" class="dialog-header">
+    <h2 id="study-exercise-title">Posición de entrenamiento</h2>
+    <button aria-label="Cerrar">×</button>
+  </form>
+  <div id="study-board" class="cg-wrap brown"></div>
+  <p id="study-exercise-feedback" role="status"></p>
+  <div class="dialog-footer">
+    <button id="study-exercise-reset" type="button">Volver a intentar</button>
+    <button id="study-exercise-reveal" type="button" class="primary">Ver solución</button>
+  </div>
+  <p id="study-exercise-solution" hidden></p>
 </dialog>
 
 <dialog id="promotion-dialog">

@@ -22,16 +22,18 @@ const ASSETS = [
   './pieces/bP.svg', './pieces/bN.svg', './pieces/bB.svg', './pieces/bR.svg', './pieces/bQ.svg', './pieces/bK.svg'
 ];
 
+const APP_ASSET_CACHE = CACHE_NAME + '-study';
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(APP_ASSET_CACHE).then((cache) => cache.addAll(ASSETS.map(path => new Request(path, { cache: 'reload' })))).then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => Promise.all(
-      keys.filter((k) => k !== CACHE_NAME && k !== ENGINE_CACHE).map((k) => caches.delete(k))
+      keys.filter((k) => k !== APP_ASSET_CACHE && k !== ENGINE_CACHE).map((k) => caches.delete(k))
     )).then(() => self.clients.claim())
   );
 });

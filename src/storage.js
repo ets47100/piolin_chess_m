@@ -23,6 +23,9 @@ export class LocalStore {
   get(id){return this.tx('readonly',s=>s.get(id));}
   all(){return this.tx('readonly',s=>s.getAll());}
   put(doc){return this.tx('readwrite',s=>s.put(structuredClone(doc)));}
+  putMany(docs){
+    return this.tx('readwrite',store=>{for(const doc of docs)store.put(doc);});
+  }
   remove(id){return this.tx('readwrite',s=>s.delete(id));}
   restore(backup){return this.tx('readwrite',s=>{
     s.clear();for(const game of backup.games)s.put(game);s.put(backup.draft);

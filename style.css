@@ -20,3 +20,14 @@
 .form-grid select, .text-field { background: #24221f; color: #eee6da; border: 1px solid #524b40; border-radius: 4px; padding: 9px; font-size: 14px; margin: 0; }
 .online-results { max-height: 260px; overflow-y: auto; margin-top: 12px; border-top: 1px solid #45413b; }
 .status-msg { font-size: 12px; color: #facc15; min-height: 18px; margin: 6px 0; }
+
+#study-progress{width:100%;accent-color:var(--green)}
+#study-board{display:block;width:100%;aspect-ratio:1;position:relative}
+.study-group{border-top:1px solid var(--line);padding-top:10px;margin-top:14px}
+.study-group h4{margin-bottom:4px}
+.study-group button{margin:0 6px 8px 0;text-align:left}
+
+#app-version{font-size:12px;color:var(--subtle);margin:0 4px;align-self:center;white-space:nowrap}
+.player-strip>div{min-width:0}
+.player-strip strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#study-scope{font-size:13px}
