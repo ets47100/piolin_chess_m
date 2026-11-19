@@ -11,8 +11,8 @@ export function parseInfo(line) {
   return {type,value,depth:d,bound:head.includes('lowerbound')?'lower':head.includes('upperbound')?'upper':'exact',pv:pv<0?[]:tokens.slice(pv+1),nodes:Number(head[head.indexOf('nodes')+1])||0};
 }
 export class LocalEngine {
-  constructor({workerFactory=(url)=>new Worker(url),onStatus=()=>{}}={}) {
-    this.workerFactory=workerFactory;this.onStatus=onStatus;this.ready=false;
+  constructor({workerFactory=(url)=>new Worker(url),onStatus=()=>{},url='engine/stockfish-19-lite-single.js',label='Stockfish 19 lite',options={Hash:32}}={}) {
+    this.workerFactory=workerFactory;this.onStatus=onStatus;this.url=url;this.label=label;this.options=options;this.ready=false;
     this.cancelEpoch=0;this.waiters=new Set();this.search=null;this.dead=false;
   }
   async init(){
@@ -22,17 +22,17 @@ export class LocalEngine {
   }
   async _init(){
     if(this.dead)throw Error('El motor está cerrado. Recarga la aplicación.');
-    this.onStatus('Cargando Stockfish completo…');
-    this.worker=this.workerFactory('engine/stockfish-19-lite-single.js');
+    this.onStatus('Cargando '+this.label+'…');
+    this.worker=this.workerFactory(this.url);
     this.worker.onmessage=event=>{for(const line of String(event.data).split(/[\r\n]+/))this._line(line.trim());};
     this.worker.onerror=()=>this._fail(Error('No se pudo ejecutar Stockfish. Comprueba que arrancaste desde el servidor local y que el dispositivo tiene memoria disponible.'));
     try {
       await this._command('uci','uciok',120000);
-      this.send('setoption name Hash value 32');
+      for(const [name,value] of Object.entries(this.options))this.setOption(name,value);
       this.send('setoption name MultiPV value 1');
       this.send('setoption name UCI_Chess960 value false');
       await this._command('isready','readyok',30000);
-      this.ready=true;this.onStatus('Stockfish 19 completo · preparado');
+      this.ready=true;this.onStatus(this.label+' · preparado');
     }catch(e){this._fail(e);throw e;}
   }
   setOption(name,value){

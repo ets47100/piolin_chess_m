@@ -4,6 +4,7 @@ import { Chess } from 'chess.js';
 import { newDocument,validateDocument,positionAt,importText,exportPgn,parseBackup,legalDests,pvToSan,validateEngineFen } from './model.js';
 import { LocalStore } from './storage.js';
 import { LocalEngine } from './engine.js';
+import { FULL_JS,canUseFullEngine,fullEngineInstalled,downloadFullEngine,fullEngineOptions } from './engine-store.js';
 const $=id=>document.getElementById(id);
 const store=new LocalStore();let storeReady=false,doc=newDocument(),board,dirtyTimer,saveTail=Promise.resolve(),saveSequence=0;
 let enabled=false,pumping=false,pending=null,analysisSerial=0,scheduleTimer,lastResult=null;
@@ -18,7 +19,40 @@ function engineStatus(text){
   $('engine-dot').className='status-dot'+(failed?' error':engine?.ready?'':' loading');
   $('retry-engine').hidden=!failed;
 }
-let engine=new LocalEngine({onStatus:engineStatus});
+let engineMode='lite',engine;
+function makeEngine(mode){
+  engineMode=mode;
+  const full=mode==='full',options=full?fullEngineOptions():{Hash:32};
+  const e=new LocalEngine({onStatus:text=>{if(e===engine)engineStatus(text);},
+    url:full?FULL_JS:'engine/stockfish-19-lite-single.js',options,
+    label:full?`Stockfish 19 completo · ${options.Threads} ${options.Threads===1?'hilo':'hilos'}`:'Stockfish 19 lite'});
+  return e;
+}
+engine=makeEngine('lite');
+async function useEngine(mode){
+  engine.destroy();engine=makeEngine(mode);
+  try{await engine.init();}
+  catch(e){
+    if(mode==='lite')throw e;
+    engine=makeEngine('lite');await engine.init();engineStatus('No se pudo iniciar el motor completo; usando Stockfish lite.');
+  }
+}
+async function ensureFullEngine(){
+  if(!canUseFullEngine()){engineStatus(engine.label+' · el motor completo necesita instalar la app y recargar');return;}
+  if(!await fullEngineInstalled()){
+    try{await downloadFullEngine((got,total)=>engineStatus(`Descargando Stockfish completo (solo la primera vez)… ${Math.round(got/1048576)} de ${Math.round(total/1048576)} MB`));}
+    catch(e){engineStatus('Usando Stockfish lite. '+e.message);return;}
+  }
+  await runExclusive(()=>useEngine('full'));
+}
+async function registerWorker(){
+  if(!('serviceWorker' in navigator)||location.protocol==='file:')return false;
+  try{
+    await navigator.serviceWorker.register('sw.js');await navigator.serviceWorker.ready;
+    if(!self.crossOriginIsolated&&!sessionStorage.getItem('piolin-isolation-reload')){sessionStorage.setItem('piolin-isolation-reload','1');location.reload();return true;}
+  }catch(e){console.warn('Service worker no disponible',e);}
+  return false;
+}
 function showError(error){toast(error.message||String(error));}
 function download(name,text,type='application/json'){
   const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');
@@ -135,7 +169,7 @@ async function pump(){
         lastResult=result;
         if(result.evaluation){doc.analyses??={};doc.analyses[result.fen]=result;const keys=Object.keys(doc.analyses);while(keys.length>32)delete doc.analyses[keys.shift()];markDirty();}
         showEvaluation(result.fen,result.evaluation,result.bestMove);
-        engineStatus('Stockfish 19 completo · análisis terminado');
+        engineStatus(engine.label+' · análisis terminado');
       }
     }
   }catch(e){
@@ -284,11 +318,11 @@ action('next-mistake-btn',()=>{if(!mistakes.length)return;mistakeCursor=(mistake
 action('help-open',()=>$('help-dialog').showModal());
 action('engine-toggle',async()=>{
   enabled=!enabled;toggleButton();
-  if(enabled)scheduleAnalysis();else{pending=null;analysisSerial++;clearTimeout(scheduleTimer);await engine.stop();engineStatus('Stockfish completo · en pausa');}
+  if(enabled)scheduleAnalysis();else{pending=null;analysisSerial++;clearTimeout(scheduleTimer);await engine.stop();engineStatus(engine.label+' · en pausa');}
 });
 $('depth').addEventListener('change',()=>{doc.depth=Number($('depth').value);markDirty();scheduleAnalysis();});
 action('retry-engine',async()=>{
-  enabled=false;pending=null;analysisSerial++;engine.destroy();engine=new LocalEngine({onStatus:engineStatus});$('engine-toggle').disabled=true;
+  enabled=false;pending=null;analysisSerial++;engine.destroy();engine=makeEngine(engineMode);$('engine-toggle').disabled=true;
   await engine.init();$('engine-toggle').disabled=false;$('retry-engine').hidden=true;toggleButton();
 });
 document.addEventListener('keydown',e=>{
@@ -301,6 +335,7 @@ document.addEventListener('visibilitychange',()=>{
 window.addEventListener('pagehide',()=>{flushSave().catch(()=>{});});
 window.addEventListener('beforeunload',()=>engine.destroy());
 async function start(){
+  if(await registerWorker())return;
   $('origin-warning').hidden=location.protocol!=='file:';
   board=Chessground($('board'),{fen:doc.initialFen,orientation:'white',coordinates:true,
     animation:{enabled:true,duration:160},movable:{free:false,color:'white',dests:legalDests(new Chess()),events:{after:onMove}},
@@ -308,6 +343,6 @@ async function start(){
   try{await store.open();storeReady=true;const saved=await store.get('draft');if(saved)doc=validateDocument(saved);$('save-status').textContent=saved?'✓ Sesión recuperada':'✓ Guardado local preparado';await updateLibrary();}
   catch(e){$('save-status').textContent='No se pudo recuperar: exporta antes de cambiar';toast('Datos locales: '+e.message);}
   render();
-  engine.init().then(()=>{$('engine-toggle').disabled=false;$('gm-audit-btn').disabled=false;engineStatus('Stockfish 19 completo · motor preparado');}).catch(e=>{engineStatus(e.message);showError(e);});
+  engine.init().then(()=>{$('engine-toggle').disabled=false;$('gm-audit-btn').disabled=false;engineStatus(engine.label+' · motor preparado');return ensureFullEngine();}).catch(e=>{engineStatus(e.message);showError(e);});
 }
 start().catch(showError);

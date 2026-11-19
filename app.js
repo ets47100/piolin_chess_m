@@ -1993,15 +1993,15 @@ function peg$subclass(child, parent) {
   child.prototype = new C();
 }
 function peg$SyntaxError(message, expected, found, location2) {
-  var self = Error.call(this, message);
+  var self2 = Error.call(this, message);
   if (Object.setPrototypeOf) {
-    Object.setPrototypeOf(self, peg$SyntaxError.prototype);
+    Object.setPrototypeOf(self2, peg$SyntaxError.prototype);
   }
-  self.expected = expected;
-  self.found = found;
-  self.location = location2;
-  self.name = "SyntaxError";
-  return self;
+  self2.expected = expected;
+  self2.found = found;
+  self2.location = location2;
+  self2.name = "SyntaxError";
+  return self2;
 }
 peg$subclass(peg$SyntaxError, Error);
 function peg$padEnd(str, targetLength, padString) {
@@ -5605,10 +5605,13 @@ function parseInfo(line) {
   return { type, value, depth: d, bound: head.includes("lowerbound") ? "lower" : head.includes("upperbound") ? "upper" : "exact", pv: pv < 0 ? [] : tokens.slice(pv + 1), nodes: Number(head[head.indexOf("nodes") + 1]) || 0 };
 }
 var LocalEngine = class {
-  constructor({ workerFactory = (url) => new Worker(url), onStatus = () => {
-  } } = {}) {
+  constructor({ workerFactory = (url2) => new Worker(url2), onStatus = () => {
+  }, url = "engine/stockfish-19-lite-single.js", label = "Stockfish 19 lite", options = { Hash: 32 } } = {}) {
     this.workerFactory = workerFactory;
     this.onStatus = onStatus;
+    this.url = url;
+    this.label = label;
+    this.options = options;
     this.ready = false;
     this.cancelEpoch = 0;
     this.waiters = /* @__PURE__ */ new Set();
@@ -5623,20 +5626,20 @@ var LocalEngine = class {
   }
   async _init() {
     if (this.dead) throw Error("El motor est\xE1 cerrado. Recarga la aplicaci\xF3n.");
-    this.onStatus("Cargando Stockfish completo\u2026");
-    this.worker = this.workerFactory("engine/stockfish-19-lite-single.js");
+    this.onStatus("Cargando " + this.label + "\u2026");
+    this.worker = this.workerFactory(this.url);
     this.worker.onmessage = (event) => {
       for (const line of String(event.data).split(/[\r\n]+/)) this._line(line.trim());
     };
     this.worker.onerror = () => this._fail(Error("No se pudo ejecutar Stockfish. Comprueba que arrancaste desde el servidor local y que el dispositivo tiene memoria disponible."));
     try {
       await this._command("uci", "uciok", 12e4);
-      this.send("setoption name Hash value 32");
+      for (const [name, value] of Object.entries(this.options)) this.setOption(name, value);
       this.send("setoption name MultiPV value 1");
       this.send("setoption name UCI_Chess960 value false");
       await this._command("isready", "readyok", 3e4);
       this.ready = true;
-      this.onStatus("Stockfish 19 completo \xB7 preparado");
+      this.onStatus(this.label + " \xB7 preparado");
     } catch (e) {
       this._fail(e);
       throw e;
@@ -5779,6 +5782,59 @@ var LocalEngine = class {
   }
 };
 
+// src/engine-store.js
+var ENGINE_CACHE = "piolin-engine-v1";
+var FULL_JS = "engine/full/stockfish-19.js";
+var FULL_WASM = "engine/full/stockfish-19.wasm";
+var FULL_BYTES = 99076105;
+var abs = (path) => new URL(path, location.href).href;
+var canUseFullEngine = () => typeof SharedArrayBuffer !== "undefined" && self.crossOriginIsolated === true && "caches" in self;
+async function fullEngineInstalled() {
+  try {
+    const cache = await caches.open(ENGINE_CACHE), hit = await cache.match(abs(FULL_WASM));
+    if (!hit) return false;
+    if (Number(hit.headers.get("content-length")) !== FULL_BYTES) {
+      await cache.delete(abs(FULL_WASM));
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function downloadFullEngine(onProgress = () => {
+}) {
+  const cache = await caches.open(ENGINE_CACHE);
+  const res = await fetch(abs(FULL_WASM), { cache: "no-store" });
+  if (!res.ok || !res.body) throw Error("No se pudo descargar Stockfish completo (" + res.status + ").");
+  const reader = res.body.getReader();
+  let received = 0;
+  const stream = new ReadableStream({
+    async pull(controller) {
+      const { done, value } = await reader.read();
+      if (done) {
+        if (received !== FULL_BYTES) controller.error(Error("Descarga incompleta de Stockfish completo."));
+        else controller.close();
+        return;
+      }
+      received += value.length;
+      onProgress(received, FULL_BYTES);
+      controller.enqueue(value);
+    },
+    cancel(reason) {
+      return reader.cancel(reason);
+    }
+  });
+  await cache.put(abs(FULL_WASM), new Response(stream, { headers: { "content-type": "application/wasm", "content-length": String(FULL_BYTES) } }));
+  navigator.storage?.persist?.().catch(() => {
+  });
+  if (!await fullEngineInstalled()) throw Error("Stockfish completo no qued\xF3 guardado en el dispositivo.");
+}
+function fullEngineOptions() {
+  const cores = navigator.hardwareConcurrency || 2, memory = navigator.deviceMemory || 4;
+  return { Threads: Math.max(1, Math.min(8, cores - 1)), Hash: memory >= 8 ? 256 : memory >= 4 ? 128 : 64 };
+}
+
 // src/app.js
 var $ = (id) => document.getElementById(id);
 var store = new LocalStore();
@@ -5810,7 +5866,64 @@ function engineStatus(text) {
   $("engine-dot").className = "status-dot" + (failed ? " error" : engine?.ready ? "" : " loading");
   $("retry-engine").hidden = !failed;
 }
-var engine = new LocalEngine({ onStatus: engineStatus });
+var engineMode = "lite";
+var engine;
+function makeEngine(mode) {
+  engineMode = mode;
+  const full = mode === "full", options = full ? fullEngineOptions() : { Hash: 32 };
+  const e = new LocalEngine({
+    onStatus: (text) => {
+      if (e === engine) engineStatus(text);
+    },
+    url: full ? FULL_JS : "engine/stockfish-19-lite-single.js",
+    options,
+    label: full ? `Stockfish 19 completo \xB7 ${options.Threads} ${options.Threads === 1 ? "hilo" : "hilos"}` : "Stockfish 19 lite"
+  });
+  return e;
+}
+engine = makeEngine("lite");
+async function useEngine(mode) {
+  engine.destroy();
+  engine = makeEngine(mode);
+  try {
+    await engine.init();
+  } catch (e) {
+    if (mode === "lite") throw e;
+    engine = makeEngine("lite");
+    await engine.init();
+    engineStatus("No se pudo iniciar el motor completo; usando Stockfish lite.");
+  }
+}
+async function ensureFullEngine() {
+  if (!canUseFullEngine()) {
+    engineStatus(engine.label + " \xB7 el motor completo necesita instalar la app y recargar");
+    return;
+  }
+  if (!await fullEngineInstalled()) {
+    try {
+      await downloadFullEngine((got, total) => engineStatus(`Descargando Stockfish completo (solo la primera vez)\u2026 ${Math.round(got / 1048576)} de ${Math.round(total / 1048576)} MB`));
+    } catch (e) {
+      engineStatus("Usando Stockfish lite. " + e.message);
+      return;
+    }
+  }
+  await runExclusive(() => useEngine("full"));
+}
+async function registerWorker() {
+  if (!("serviceWorker" in navigator) || location.protocol === "file:") return false;
+  try {
+    await navigator.serviceWorker.register("sw.js");
+    await navigator.serviceWorker.ready;
+    if (!self.crossOriginIsolated && !sessionStorage.getItem("piolin-isolation-reload")) {
+      sessionStorage.setItem("piolin-isolation-reload", "1");
+      location.reload();
+      return true;
+    }
+  } catch (e) {
+    console.warn("Service worker no disponible", e);
+  }
+  return false;
+}
 function showError(error) {
   toast(error.message || String(error));
 }
@@ -6014,7 +6127,7 @@ async function pump() {
           markDirty();
         }
         showEvaluation(result.fen, result.evaluation, result.bestMove);
-        engineStatus("Stockfish 19 completo \xB7 an\xE1lisis terminado");
+        engineStatus(engine.label + " \xB7 an\xE1lisis terminado");
       }
     }
   } catch (e) {
@@ -6337,7 +6450,7 @@ action("engine-toggle", async () => {
     analysisSerial++;
     clearTimeout(scheduleTimer);
     await engine.stop();
-    engineStatus("Stockfish completo \xB7 en pausa");
+    engineStatus(engine.label + " \xB7 en pausa");
   }
 });
 $("depth").addEventListener("change", () => {
@@ -6350,7 +6463,7 @@ action("retry-engine", async () => {
   pending = null;
   analysisSerial++;
   engine.destroy();
-  engine = new LocalEngine({ onStatus: engineStatus });
+  engine = makeEngine(engineMode);
   $("engine-toggle").disabled = true;
   await engine.init();
   $("engine-toggle").disabled = false;
@@ -6389,6 +6502,7 @@ window.addEventListener("pagehide", () => {
 });
 window.addEventListener("beforeunload", () => engine.destroy());
 async function start4() {
+  if (await registerWorker()) return;
   $("origin-warning").hidden = location.protocol !== "file:";
   board = Chessground($("board"), {
     fen: doc.initialFen,
@@ -6414,7 +6528,8 @@ async function start4() {
   engine.init().then(() => {
     $("engine-toggle").disabled = false;
     $("gm-audit-btn").disabled = false;
-    engineStatus("Stockfish 19 completo \xB7 motor preparado");
+    engineStatus(engine.label + " \xB7 motor preparado");
+    return ensureFullEngine();
   }).catch((e) => {
     engineStatus(e.message);
     showError(e);
