@@ -9,7 +9,7 @@ Demo: https://ets47100.github.io/piolin_chess_m/
 - `src/`: fuentes (`app.js`, `model.js`, `storage.js`, `engine.js`).
 - `app.js`: bundle generado con esbuild; no editar a mano.
 - `piolin-extras.js`: modo contra máquina, relojes y auditoría GM.
-- `engine/`: carga de Stockfish (WASM, vía CDN).
+- `engine/`: Stockfish 19 lite (WASM, un solo hilo, incluido en el repo).
 - `sw.js`, `manifest.json`: PWA offline.
 
 ## Desarrollo

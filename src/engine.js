@@ -23,7 +23,7 @@ export class LocalEngine {
   async _init(){
     if(this.dead)throw Error('El motor está cerrado. Recarga la aplicación.');
     this.onStatus('Cargando Stockfish completo…');
-    this.worker=this.workerFactory('engine/stockfish-19-single.js');
+    this.worker=this.workerFactory('engine/stockfish-19-lite-single.js');
     this.worker.onmessage=event=>{for(const line of String(event.data).split(/[\r\n]+/))this._line(line.trim());};
     this.worker.onerror=()=>this._fail(Error('No se pudo ejecutar Stockfish. Comprueba que arrancaste desde el servidor local y que el dispositivo tiene memoria disponible.'));
     try {

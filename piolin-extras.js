@@ -13,7 +13,7 @@
 
   function initBotWorker() {
     if (botWorker) return botWorker;
-    botWorker = new Worker('engine/stockfish-19-single.js');
+    botWorker = new Worker('engine/stockfish-19-lite-single.js');
     botWorker.postMessage('uci');
     botWorker.postMessage('setoption name Hash value 16');
     botWorker.postMessage('isready');
