@@ -12,6 +12,10 @@ Demo: https://ets47100.github.io/piolin_chess_m/
 - `engine/`: Stockfish 19 lite (WASM, un solo hilo, incluido en el repo).
 - `sw.js`, `manifest.json`: PWA offline.
 
+En Android, abre la aplicación en Chrome y pulsa «Instalar» cuando aparezca el botón.
+Stockfish lite queda disponible sin conexión tras la primera carga; el motor completo
+opcional debe descargarse previamente.
+
 ## Desarrollo
 ```
 npm install
