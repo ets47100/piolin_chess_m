@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-const CACHE_NAME = 'piolin-chess-pwa-v7';
+const CACHE_NAME = 'piolin-chess-pwa-v8';
 const ENGINE_CACHE = 'piolin-engine-v1';
 const ENGINE_WASM = 'engine/full/stockfish-19.wasm';
 const ASSETS = [
@@ -9,9 +9,11 @@ const ASSETS = [
   './chessground.css',
   './app.js',
   './piolin-extras.js',
+  './pwa-install.js',
   './favicon.svg',
   './manifest.json',
   './piolin.png',
+  './piolin-512.png',
   './licencias.html',
   './engine/stockfish-19-lite-single.js',
   './engine/stockfish-19-lite-single.wasm',
