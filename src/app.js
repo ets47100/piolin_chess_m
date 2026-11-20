@@ -192,15 +192,21 @@ async function pump(){
 }
 async function updateLibrary(){
   if(!storeReady)return;
-  const games=(await store.all()).filter(g=>g.id!=='draft').sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+  const entries = await store.all();
+  const games=entries.filter(g=>g.id!=='draft' && !g.role).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
   $('library-count').textContent=String(games.length);
+  $('lib-modal-count').textContent=String(games.length);
+  $('library-studies').innerHTML = entries.filter(entry => entry.role)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map(study => `<div class="library-item"><div class="library-description"><strong>${escape(study.name)}</strong><small>${study.role === 'profile' ? 'Mi perfil' : 'Rival'} · ${study.records.length} partidas analizadas</small></div><button data-study="${escape(study.id)}">Abrir estudio</button><button class="delete-button" data-remove-study="${escape(study.id)}" aria-label="Eliminar estudio">×</button></div>`).join('');
   $('library-list').innerHTML=games.length?games.map(g=>`<div class="library-item"><div class="library-description"><strong>${escape(g.title)}</strong><small>${g.moves.length} medias jugadas · ${escape(new Date(g.updatedAt).toLocaleDateString('es-ES'))}</small></div><button data-open="${escape(g.id)}">Abrir</button><button class="delete-button" data-delete="${escape(g.id)}" aria-label="Eliminar ${escape(g.title)}">×</button></div>`).join(''):'<p>Todavía no hay partidas. Usa «Guardar en biblioteca» para añadir la primera.</p>';
 }
 async function makeBackup(){
   if(!storeReady)throw Error('El almacenamiento no está disponible. Exporta al menos el PGN actual.');
   await flushSave();
-  const games=(await store.all()).filter(g=>g.id!=='draft');
-  return JSON.stringify({application:'piolin_chess',schema:1,exportedAt:new Date().toISOString(),draft:structuredClone(doc),games},null,2);
+  const entries=(await store.all()).filter(g=>g.id!=='draft');
+  const games=entries.filter(g=>!g.role), studies=entries.filter(g=>g.role);
+  return JSON.stringify({application:'piolin_chess',schema:1,exportedAt:new Date().toISOString(),draft:structuredClone(doc),games,studies},null,2);
 }
 function action(id,fn){$(id).addEventListener('click',()=>Promise.resolve().then(fn).catch(showError));}
 action('flip',()=>{doc.orientation=doc.orientation==='white'?'black':'white';render();markDirty();});
@@ -240,70 +246,62 @@ async function importFromDialog(pgn, studyPlayer = '') {
   }
 }
 action('import-confirm', () => importFromDialog($('import-text').value));
+async function studyPgns(pgns, preferredPlayer, sourceDialog) {
+  const games = [];
+  let skipped = 0;
+  for (const pgn of pgns) {
+    try {
+      const game = importText(pgn);
+      if (!studyGame(game)) { skipped++; continue; }
+      markStudyPlayer(game, preferredPlayer);
+      games.push(game);
+    } catch {
+      skipped++;
+    }
+  }
+  if (!games.length) throw Error('No hay partidas PGN con ambos jugadores identificados y jugadas válidas.');
+  await openStudy({ preferredPlayer, games, skipped });
+  sourceDialog.close();
+  return `${games.length} partidas disponibles. ${skipped} omitidas.`;
+}
 document.addEventListener('piolin:open-online-game', event => {
   const { pgn, player } = event.detail;
-  $('import-error').textContent = '';
-  $('import-text').value = pgn;
-  $('online-dialog').close();
-  $('import-dialog').showModal();
-  importFromDialog(pgn, player);
+  studyPgns([pgn], player, $('online-dialog')).catch(error => {
+    $('online-status').textContent = error.message;
+  });
 });
-let savingBatch = false;
-async function savePgnBatch(pgns, studyPlayer = '') {
-  if (!storeReady) throw Error('La Biblioteca no está disponible.');
-  if (savingBatch) throw Error('Ya se está guardando un lote.');
-  savingBatch = true;
-  try {
-    const keys = new Set((await store.all()).filter(game => game.id !== 'draft').map(studyGame).filter(Boolean).map(game => game.key));
-    const games = [], batchKeys = new Set();
-    let duplicates = 0, skipped = 0;
-    for (const pgn of pgns) {
-      try {
-        const game = importText(pgn), metadata = studyGame(game);
-        if (!metadata) { skipped++; continue; }
-        batchKeys.add(metadata.key);
-        if (keys.has(metadata.key)) { duplicates++; continue; }
-        keys.add(metadata.key);
-        markStudyPlayer(game, studyPlayer);
-        games.push({ ...game, id: crypto.randomUUID() });
-      } catch {
-        skipped++;
-      }
-    }
-    if (games.length) {
-      await store.putMany(games);
-      await updateLibrary();
-      navigator.storage?.persist?.().catch(() => {});
-    }
-    return { message: `${games.length} guardadas · ${duplicates} repetidas · ${skipped} no aptas para el estudio.`, batchKeys };
-  } finally {
-    savingBatch = false;
-  }
-}
-document.addEventListener('piolin:save-pgn-batch', event => {
+document.addEventListener('piolin:study-pgn-batch', event => {
   const { pgns, player, resolve, reject } = event.detail;
-  savePgnBatch(pgns, player).then(async ({ message, batchKeys }) => {
-    if (batchKeys.size) {
-      await openStudy({ preferredPlayer: player, batchKeys });
-      $('online-dialog').close();
-      toast(message);
-    }
-    return message;
-  }).then(resolve, reject);
+  studyPgns(pgns, player, $('online-dialog')).then(resolve, reject);
 });
 action('import-batch', async () => {
   const output = $('import-error');
-  output.classList.remove('error');
-  output.textContent = 'Guardando partidas…';
   try {
-    const pgns = $('import-text').value.trim().split(/\n\s*\n(?=\[Event\s)/);
-    output.textContent = (await savePgnBatch(pgns)).message;
+    const pgns = $('import-text').value.trim().split(/\r?\n\s*\r?\n(?=\[Event\s)/);
+    await studyPgns(pgns, '', $('import-dialog'));
   } catch (error) {
     output.classList.add('error');
     output.textContent = error.message;
   }
 });
-const openStudy = setupStudy(() => store.all().then(games => games.filter(game => game.id !== 'draft')), showError);
+const openStudy = setupStudy({
+  load: () => storeReady ? store.all().then(entries => entries.filter(entry => entry.id !== 'draft')) : [],
+  save: async study => {
+    if (!storeReady) throw Error('La biblioteca no está disponible en este navegador.');
+    await store.saveStudy(study, doc => studyGame(doc)?.key);
+    await updateLibrary();
+    navigator.storage?.persist?.().catch(() => {});
+  },
+  showError,
+});
+$('library-studies').addEventListener('click', event => {
+  const id = event.target.closest('[data-study]')?.dataset.study;
+  const remove = event.target.closest('[data-remove-study]')?.dataset.removeStudy;
+  if (id) store.get(id).then(saved => openStudy({ preferredPlayer: saved.name, saved })).catch(showError);
+  if (remove && confirm('¿Eliminar el estudio de la biblioteca?')) {
+    store.remove(remove).then(updateLibrary).catch(showError);
+  }
+});
 action('export-pgn',()=>download('piolin_partida.pgn',exportPgn(doc),'application/x-chess-pgn'));
 action('library-open',async()=>{if(!storeReady)throw Error('No hay almacenamiento disponible.');await updateLibrary();$('library-dialog').showModal();});
 action('save-library',async()=>{

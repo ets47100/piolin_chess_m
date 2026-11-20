@@ -5395,7 +5395,7 @@ var Chess = class {
 };
 
 // src/model.js
-var APP_VERSION = "3.1.0";
+var APP_VERSION = "3.2.0";
 var DEFAULT_FEN = DEFAULT_POSITION;
 function positionAt(doc2, cursor = doc2.cursor) {
   const chess = new Chess(doc2.initialFen);
@@ -5522,7 +5522,13 @@ function parseBackup(text) {
     ids.add(d.id);
     return d;
   });
-  return { games, draft: b.draft ? { ...validateDocument(b.draft), id: "draft" } : newDocument() };
+  const studies = (Array.isArray(b.studies) ? b.studies : []).map((study) => {
+    if (!["profile", "rival"].includes(study?.role) || typeof study.player !== "string" || typeof study.name !== "string" || !Array.isArray(study.records) || study.records.some((record) => !Array.isArray(record.findings) || !Array.isArray(record.game?.colors) || !record.game.colors.every((color) => ["w", "b"].includes(color)))) {
+      throw Error("La copia contiene un estudio no compatible.");
+    }
+    return { ...study, id: typeof study.id === "string" && /^study:[a-f0-9-]{36}$/.test(study.id) ? study.id : "study:" + crypto.randomUUID(), records: study.records.map((record) => ({ ...record, game: { ...record.game, doc: validateDocument(record.game.doc) } })) };
+  });
+  return { games, studies, draft: b.draft ? { ...validateDocument(b.draft), id: "draft" } : newDocument() };
 }
 function legalDests(chess) {
   const dests = /* @__PURE__ */ new Map();
@@ -5724,6 +5730,8 @@ async function analyzeStudyGame(game, analyze, onProgress, isPaused) {
       color: move3.color,
       best: before.bestMove,
       solution: pvToSan(move3.before, before.evaluation.pv),
+      replyFen: move3.after,
+      replyBest: after.bestMove,
       reply: pvToSan(move3.after, after.evaluation.pv)
     });
   }
@@ -5766,6 +5774,66 @@ function summarize(records) {
       chronological: games.every(({ game }) => Boolean(game.date))
     };
   });
+}
+var positionKey = (fen) => fen.split(" ").slice(0, 4).join(" ");
+function openingBook(games, color) {
+  const book = /* @__PURE__ */ new Map();
+  for (const game of games.filter((game2) => game2.colors.includes(color))) {
+    const chess = new Chess(game.doc.initialFen);
+    if (chess.fen() !== new Chess().fen()) continue;
+    const seen = /* @__PURE__ */ new Set();
+    for (const san of game.doc.moves.slice(0, 16)) {
+      const fen = positionKey(chess.fen());
+      const move3 = chess.move(san);
+      if (move3.color !== color || seen.has(fen)) continue;
+      seen.add(fen);
+      if (!book.has(fen)) book.set(fen, /* @__PURE__ */ new Map());
+      const choices = book.get(fen);
+      choices.set(move3.san, (choices.get(move3.san) || 0) + 1);
+    }
+  }
+  return book;
+}
+async function prepareOpening(games, repertoire, ownColor, analyze) {
+  const opponent = openingBook(games, ownColor === "w" ? "b" : "w");
+  const own = openingBook(repertoire, ownColor);
+  const ranked = (book, chess) => [...book.get(positionKey(chess.fen())) || []].sort((a, b) => b[1] - a[1]);
+  const root = new Chess();
+  if (!games.some((game) => new Chess(game.doc.initialFen).fen() === root.fen())) return [];
+  const choose = async (chess) => {
+    const familiar = ranked(own, chess)[0];
+    const result = await analyze(chess.fen(), 12);
+    if (!result.bestMove) return null;
+    const line = pvToSan(chess.fen(), result.evaluation.pv);
+    const best = playLine(chess.fen(), [result.bestMove]).history()[0];
+    return { san: familiar?.[0] || best, familiar: familiar?.[1] || 0, best, line };
+  };
+  const first = ownColor === "w" ? await choose(root) : null;
+  if (first) root.move(first.san);
+  const observed = ranked(opponent, root);
+  const total = observed.reduce((sum, [, count]) => sum + count, 0);
+  const plans = [];
+  for (const [move3, count] of observed.slice(0, 3)) {
+    const chess = new Chess(root.fen());
+    chess.move(move3);
+    const response = await choose(chess);
+    if (!response) continue;
+    chess.move(response.san);
+    const followups = ranked(opponent, chess).slice(0, 2).map(([reply, frequency]) => ({
+      reply,
+      frequency
+    }));
+    let alternate;
+    if (followups.length) {
+      const reply = (followups[1] || followups[0]).reply;
+      chess.move(reply);
+      const continuation = await choose(chess);
+      if (continuation) alternate = { reply, response: continuation };
+    }
+    plans.push({ first, move: move3, count, total, response, followups, alternate });
+  }
+  if (!plans.length && first) plans.push({ first, followups: [] });
+  return plans;
 }
 
 // src/engine.js
@@ -5961,56 +6029,144 @@ var LocalEngine = class {
 
 // src/study-view.js
 var $ = (id) => document.getElementById(id);
-function setupStudy(loadLibrary, showError2) {
+function setupStudy({ load, save, showError: showError2 }) {
   const dialog = $("study-dialog"), form = $("study-form"), player = $("study-player");
   const start5 = $("study-start"), pause = $("study-pause"), status = $("study-status");
   const progress = $("study-progress"), results = $("study-results");
-  const onlyBatch = $("study-only-batch");
-  const filters = [player, $("study-rhythm"), $("study-color"), $("study-limit"), onlyBatch];
-  const exercise = $("study-exercise");
-  let library = [], batch, job, engine2, board2, position, example2, solved;
-  async function open({ preferredPlayer = "", batchKeys } = {}) {
-    library = (await loadLibrary()).map(studyGame).filter(Boolean);
+  const onlyBatch = $("study-only-batch"), role = $("study-role"), single = $("study-single");
+  const color = $("study-color"), rhythm = $("study-rhythm"), limit = $("study-limit");
+  const saveButton = $("study-save");
+  const filters = [player, role, rhythm, color, limit, onlyBatch, single];
+  const exercise = $("study-exercise"), replay = $("study-replay");
+  let replayBoard, replayGame, replayPly;
+  function renderReplay() {
+    const { doc: doc2, colors: colors2 } = replayGame;
+    const chess = positionAt(doc2, replayPly);
+    replayBoard.set({
+      fen: chess.fen(),
+      orientation: colors2[0] === "b" ? "black" : "white",
+      check: chess.inCheck()
+    });
+    $("study-replay-move").textContent = replayPly ? `${replayPly}/${doc2.moves.length} \xB7 ${doc2.moves[replayPly - 1]}` : "Posici\xF3n inicial";
+    $("study-replay-prev").disabled = replayPly === 0;
+    $("study-replay-next").disabled = replayPly === doc2.moves.length;
+  }
+  $("study-replay-prev").addEventListener("click", () => {
+    replayPly--;
+    renderReplay();
+  });
+  $("study-replay-next").addEventListener("click", () => {
+    replayPly++;
+    renderReplay();
+  });
+  function openReplay(game) {
+    replayGame = game;
+    replayPly = 0;
+    $("study-replay-title").textContent = `${game.white} \u2013 ${game.black}`;
+    replay.showModal();
+    replayBoard ||= Chessground($("study-replay-board"), { viewOnly: true, drawable: { enabled: false } });
+    renderReplay();
+  }
+  let library = [], batch, profiles, skipped, job, engine2, board2, position, example2, solved, running;
+  async function open({ preferredPlayer = "", games, saved, skipped: omitted = 0 } = {}) {
+    if (dialog.open || running) return;
+    const entries = await load();
+    profiles = entries.filter((entry) => entry.role === "profile");
+    library = entries.filter((entry) => !entry.role).map(studyGame).filter(Boolean);
+    batch = games?.map(studyGame) || saved?.records.map((record) => record.game);
+    skipped = omitted;
     const users = /* @__PURE__ */ new Map();
-    for (const game of library) {
+    for (const game of batch || library) {
       for (const name of [game.white, game.black]) users.set(playerKey(name), name);
     }
-    const selected = preferredPlayer ? playerKey(preferredPlayer) : player.value;
-    batch = batchKeys;
-    $("study-scope").hidden = !batch;
-    onlyBatch.checked = Boolean(batch);
-    if (batch) {
-      $("study-rhythm").value = "all";
-      $("study-color").value = "all";
-      $("study-limit").value = "all";
-    }
+    const selected = playerKey(preferredPlayer);
     player.replaceChildren(...[...users].sort((a, b) => a[1].localeCompare(b[1], "es")).map(([key, name]) => new Option(name, key)));
     if (users.has(selected)) player.value = selected;
+    $("study-scope").hidden = !batch;
+    onlyBatch.checked = Boolean(batch);
+    rhythm.value = saved?.rhythm || "all";
+    role.value = saved?.role || "";
+    setColorOptions(saved?.color);
+    limit.value = "all";
+    single.value = "";
+    job = void 0;
     updateSelection();
+    if (saved) {
+      job = { ...saved, key: selectionKey(selection()), saved: true };
+      renderReport();
+      progress.hidden = false;
+      showProgress(saved.records.length, saved.records.length, "Estudio guardado.");
+      start5.textContent = "Analizar de nuevo";
+      $("study-exit").textContent = "Cerrar estudio";
+    }
     dialog.showModal();
   }
-  function selection() {
-    const candidates = onlyBatch.checked && batch ? library.filter((game) => batch.has(game.key)) : library;
-    return selectGames(
-      candidates,
-      player.value,
-      $("study-color").value,
-      $("study-rhythm").value,
-      Number($("study-limit").value) || Infinity
-    );
+  function setColorOptions(value2) {
+    const rival = role.value === "rival";
+    $("study-color-label").textContent = rival ? "Jugar\xE9 con" : "Color del jugador";
+    const options = rival ? [] : [new Option("Ambos", "all")];
+    color.replaceChildren(...options, new Option("Blancas", "w"), new Option("Negras", "b"));
+    if (value2 && [...color.options].some((option) => option.value === value2)) color.value = value2;
   }
+  function selection(individual = true) {
+    const candidates = batch ? onlyBatch.checked ? batch : [...batch, ...library] : library;
+    const side = role.value === "rival" ? color.value === "w" ? "b" : "w" : color.value;
+    const games = selectGames(candidates, player.value, side, rhythm.value, Number(limit.value) || Infinity);
+    return individual && single.value ? games.filter((game) => game.key === single.value) : games;
+  }
+  const selectionKey = (games) => JSON.stringify([
+    role.value,
+    player.value,
+    color.value,
+    games.map((game) => [game.key, game.colors])
+  ]);
   function updateSelection() {
+    const selected = single.value, available = selection(false);
+    single.replaceChildren(new Option("Conjunto de partidas", ""), ...available.map((game) => new Option(`${game.white} \u2013 ${game.black} \xB7 ${game.date || "Sin fecha"} \xB7 ${game.colors[0] === "w" ? "Blancas" : "Negras"}`, game.key)));
+    if (available.some((game) => game.key === selected)) single.value = selected;
     const games = selection();
-    const same = job?.key === JSON.stringify(games.map((game) => [game.key, game.colors])) && job.player === player.value;
-    if (!same) job = void 0;
-    status.textContent = games.length ? `${games.length} partidas seleccionadas para este estudio.` : "No hay partidas con jugador y jugadas para esos filtros. Guarda en la Biblioteca las partidas PGN del jugador.";
+    if (job?.key !== selectionKey(games)) job = void 0;
+    status.textContent = games.length ? `${games.length} partidas seleccionadas.${skipped ? ` ${skipped} PGN omitidos.` : ""}` : "No hay partidas con jugador y jugadas para esos filtros.";
     progress.hidden = !job;
     if (job) showProgress(job.records.length, games.length);
     results.replaceChildren();
     if (job?.records.length) renderReport();
-    start5.disabled = !games.length;
+    start5.disabled = !role.value || !games.length;
     start5.textContent = !job ? "Analizar partidas" : job.records.length < games.length ? "Continuar an\xE1lisis" : "Analizar de nuevo";
+    updateSave();
   }
+  function updateSave() {
+    saveButton.hidden = !job?.records.length || Boolean(job.saved);
+    $("study-exit").textContent = job?.saved ? "Cerrar estudio" : "Salir sin guardar";
+  }
+  saveButton.addEventListener("click", async () => {
+    if (running || !job?.records.length || job.saved) return;
+    const current = job;
+    saveButton.disabled = true;
+    try {
+      const { role: role2, player: player2, name, records, plans, color: color2, rhythm: rhythm2 } = current;
+      await save({
+        id: "study:" + crypto.randomUUID(),
+        role: role2,
+        player: player2,
+        name,
+        records,
+        plans,
+        color: color2,
+        rhythm: rhythm2,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      current.saved = true;
+      if (job === current) {
+        updateSave();
+        status.textContent = "Estudio guardado en la biblioteca.";
+      }
+    } catch (error) {
+      showError2(error);
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
   function showProgress(done, total, detail = "") {
     progress.max = total;
     progress.value = done;
@@ -6021,6 +6177,23 @@ function setupStudy(loadLibrary, showError2) {
     const note = document.createElement("p");
     note.textContent = "Estimaci\xF3n de Stockfish. Los patrones estrat\xE9gicos son pistas para revisar. Las comparaciones usan partidas del mismo ritmo; si falta la fecha PGN, ese grupo no muestra evoluci\xF3n.";
     results.append(note);
+    const rival = job.role === "rival";
+    if (rival) renderPreparation();
+    const evidence = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = `Partidas analizadas (${job.records.length})`;
+    evidence.append(summary);
+    for (const { game, findings } of job.records) {
+      const line = document.createElement("p");
+      line.textContent = `${game.white} \u2013 ${game.black} \xB7 ${game.colors.map((side) => side === "w" ? "Blancas" : "Negras").join(" y ")} \xB7 ${rhythms[game.rhythm]} \xB7 ${findings.length} posiciones detectadas`;
+      const replayButton = document.createElement("button");
+      replayButton.type = "button";
+      replayButton.textContent = "Reproducir partida";
+      replayButton.addEventListener("click", () => openReplay(game));
+      line.append(" ", replayButton);
+      evidence.append(line);
+    }
+    results.append(evidence);
     for (const group of summarize(job.records)) {
       const section = document.createElement("section");
       section.className = "study-group";
@@ -6034,25 +6207,67 @@ function setupStudy(loadLibrary, showError2) {
       }
       for (const pattern of group.patterns) {
         const lesson = lessons[pattern.kind], heading = document.createElement("h4");
-        heading.textContent = lesson.title;
+        heading.textContent = rival ? "Debilidad observada \xB7 " + lesson.title : lesson.title;
         const stats = document.createElement("p");
         stats.textContent = `${pattern.count} de ${group.count} partidas \xB7 ${pattern.total} casos.`;
         if (pattern.priorTotal && group.chronological && group.rhythm !== "unknown") {
           stats.textContent += ` \xDAltimas 10: ${pattern.recent}/10. Anteriores: ${pattern.prior}/${pattern.priorTotal}.`;
         }
         const tip = document.createElement("p");
-        tip.textContent = lesson.tip;
+        tip.textContent = rival ? {
+          mate: "Cuando el rey quede expuesto, calcula jaques y amenazas de mate.",
+          material: "Busca capturas forzadas y piezas indefensas al calcular la respuesta.",
+          king: "Comprueba si puedes abrir una columna central antes de que el rival asegure su rey.",
+          development: "Considera abrir el centro cuando tus piezas est\xE9n mejor desarrolladas.",
+          other: "Revisa la continuaci\xF3n concreta y comprueba si la ventaja se mantiene ante la mejor defensa."
+        }[pattern.kind] : lesson.tip;
         section.append(heading, stats, tip);
         for (const event of pattern.examples) {
           const button = document.createElement("button");
           button.type = "button";
+          if (rival && !event.replyBest) continue;
+          const exerciseEvent = rival ? {
+            ...event,
+            fen: event.replyFen,
+            best: event.replyBest,
+            color: event.color === "w" ? "b" : "w",
+            solution: event.reply,
+            reply: "",
+            afterRivalMove: true
+          } : event;
           const number = event.fen.split(" ")[5];
           button.textContent = `${event.game} \xB7 jugada ${number} con ${event.color === "w" ? "blancas" : "negras"}`;
-          button.addEventListener("click", () => openExercise(event));
+          button.addEventListener("click", () => openExercise(exerciseEvent));
           section.append(button);
         }
       }
       results.append(section);
+    }
+  }
+  function renderPreparation() {
+    const title = document.createElement("h3");
+    title.textContent = `Preparaci\xF3n con ${job.color === "w" ? "blancas" : "negras"}`;
+    const opening = document.createElement("p");
+    opening.textContent = "Las frecuencias se calculan a partir de las partidas analizadas que alcanzaron cada posici\xF3n. Las jugadas de repertorio proceden de los estudios guardados en Mi perfil. Tambi\xE9n se muestra la primera opci\xF3n de Stockfish para comparar.";
+    results.append(title, opening);
+    for (const plan of job.plans || []) {
+      const line = document.createElement("p");
+      const describe = (choice) => choice.familiar ? `${choice.san} (repertorio, ${choice.familiar} partidas; Stockfish: ${choice.best})` : `${choice.san} (Stockfish)`;
+      const beginning = plan.first ? `Empieza con ${describe(plan.first)}. ` : "";
+      if (plan.response) {
+        line.textContent = `${beginning}Si juega ${plan.move} (${plan.count}/${plan.total}), prepara ${describe(plan.response)}.`;
+        if (plan.response.line) line.textContent += ` Variante del motor: ${plan.response.line}.`;
+        if (plan.followups.length) line.textContent += " Continuaciones vistas: " + plan.followups.map(({ reply, frequency }) => `${reply} (${frequency})`).join(", ") + ".";
+        if (plan.alternate) line.textContent += ` Ante ${plan.alternate.reply}, considera ${describe(plan.alternate.response)}.`;
+      } else {
+        line.textContent = beginning + "La muestra no recoge respuestas del rival a esta salida.";
+      }
+      results.append(line);
+    }
+    if (!job.plans?.length) {
+      const empty = document.createElement("p");
+      empty.textContent = "Todav\xEDa no hay una muestra de apertura para este color.";
+      results.append(empty);
     }
   }
   function renderExercise() {
@@ -6096,9 +6311,9 @@ function setupStudy(loadLibrary, showError2) {
     solved = false;
     $("study-exercise-title").textContent = example2.game;
     const name = player.selectedOptions[0]?.text || "";
-    const color = example2.color === "w" ? "blancas" : "negras";
+    const color2 = example2.color === "w" ? "blancas" : "negras";
     const feedback = $("study-exercise-feedback");
-    feedback.textContent = name + " juega con " + color + ". Encuentra una continuaci\xF3n.";
+    feedback.textContent = example2.afterRivalMove ? `Tu rival acaba de jugar ${example2.move}. Juegas con ${color2}. Encuentra c\xF3mo responder.` : name + " juega con " + color2 + ". Encuentra una continuaci\xF3n.";
     const solution = $("study-exercise-solution");
     solution.hidden = true;
     solution.textContent = "";
@@ -6112,14 +6327,24 @@ function setupStudy(loadLibrary, showError2) {
   });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (engine2) return;
+    if (running || !role.value) return;
     const games = selection();
     if (!games.length) return;
     if (!job || job.records.length === games.length) {
-      job = { key: JSON.stringify(games.map((game) => [game.key, game.colors])), player: player.value, records: [] };
+      job = {
+        key: selectionKey(games),
+        player: player.value,
+        name: player.selectedOptions[0].text,
+        role: role.value,
+        color: color.value,
+        rhythm: rhythm.value,
+        records: []
+      };
     }
     const worker = new LocalEngine({ options: { Hash: 16 } });
     engine2 = worker;
+    running = true;
+    saveButton.hidden = true;
     start5.disabled = true;
     pause.disabled = false;
     for (const filter of filters) filter.disabled = true;
@@ -6142,18 +6367,40 @@ function setupStudy(loadLibrary, showError2) {
         job.records.push({ game, findings });
         showProgress(job.records.length, games.length);
       }
+      if (job.role === "rival" && engine2 === worker) {
+        showProgress(job.records.length, games.length, "Preparando aperturas\u2026");
+        const seen = /* @__PURE__ */ new Set();
+        const repertoire = profiles.flatMap((profile) => profile.records.map((record) => record.game)).filter((game) => {
+          const key = JSON.stringify([game.key, game.colors]);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        job.plans = await prepareOpening(
+          job.records.map((record) => record.game),
+          repertoire,
+          job.color,
+          (fen, depth) => worker.analyze(fen, depth)
+        );
+      }
     } catch (error) {
       if (engine2 === worker) message = error.message;
     } finally {
       const paused = engine2 !== worker;
       worker.destroy();
       engine2 = void 0;
+      running = false;
       for (const filter of filters) filter.disabled = false;
-      start5.disabled = false;
       pause.disabled = true;
+      if (!dialog.open) {
+        job = void 0;
+        return;
+      }
+      start5.disabled = false;
       start5.textContent = job.records.length < games.length ? "Continuar an\xE1lisis" : "Analizar de nuevo";
       showProgress(job.records.length, games.length, message || (paused ? "An\xE1lisis en pausa. Se conservan las partidas completadas mientras esta pesta\xF1a siga abierta." : "An\xE1lisis terminado."));
       if (job.records.length) renderReport();
+      updateSave();
     }
   });
   function stop2() {
@@ -6162,7 +6409,12 @@ function setupStudy(loadLibrary, showError2) {
     worker?.destroy();
   }
   pause.addEventListener("click", stop2);
-  dialog.addEventListener("close", stop2);
+  dialog.addEventListener("close", () => {
+    stop2();
+    if (!running) job = void 0;
+    batch = void 0;
+  });
+  role.addEventListener("change", () => setColorOptions());
   for (const filter of filters) filter.addEventListener("change", updateSelection);
   $("study-open").addEventListener("click", () => open().catch(showError2));
   return open;
@@ -6211,6 +6463,20 @@ var LocalStore = class {
       for (const doc2 of docs) store2.put(doc2);
     });
   }
+  saveStudy(study, gameKey) {
+    return this.tx("readwrite", (store2) => {
+      const request = store2.getAll();
+      request.onsuccess = () => {
+        const keys = new Set(request.result.filter((doc2) => doc2.id !== "draft" && !doc2.role).map(gameKey));
+        for (const { game } of study.records) {
+          if (keys.has(game.key)) continue;
+          keys.add(game.key);
+          store2.put({ ...game.doc, id: crypto.randomUUID() });
+        }
+        store2.put(study);
+      };
+    });
+  }
   remove(id) {
     return this.tx("readwrite", (s) => s.delete(id));
   }
@@ -6219,6 +6485,7 @@ var LocalStore = class {
       s.clear();
       for (const game of backup.games) s.put(game);
       s.put(backup.draft);
+      for (const study of backup.studies) s.put(study);
     });
   }
 };
@@ -6598,15 +6865,19 @@ async function pump() {
 }
 async function updateLibrary() {
   if (!storeReady) return;
-  const games = (await store.all()).filter((g) => g.id !== "draft").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const entries = await store.all();
+  const games = entries.filter((g) => g.id !== "draft" && !g.role).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   $2("library-count").textContent = String(games.length);
+  $2("lib-modal-count").textContent = String(games.length);
+  $2("library-studies").innerHTML = entries.filter((entry) => entry.role).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map((study) => `<div class="library-item"><div class="library-description"><strong>${escape(study.name)}</strong><small>${study.role === "profile" ? "Mi perfil" : "Rival"} \xB7 ${study.records.length} partidas analizadas</small></div><button data-study="${escape(study.id)}">Abrir estudio</button><button class="delete-button" data-remove-study="${escape(study.id)}" aria-label="Eliminar estudio">\xD7</button></div>`).join("");
   $2("library-list").innerHTML = games.length ? games.map((g) => `<div class="library-item"><div class="library-description"><strong>${escape(g.title)}</strong><small>${g.moves.length} medias jugadas \xB7 ${escape(new Date(g.updatedAt).toLocaleDateString("es-ES"))}</small></div><button data-open="${escape(g.id)}">Abrir</button><button class="delete-button" data-delete="${escape(g.id)}" aria-label="Eliminar ${escape(g.title)}">\xD7</button></div>`).join("") : "<p>Todav\xEDa no hay partidas. Usa \xABGuardar en biblioteca\xBB para a\xF1adir la primera.</p>";
 }
 async function makeBackup() {
   if (!storeReady) throw Error("El almacenamiento no est\xE1 disponible. Exporta al menos el PGN actual.");
   await flushSave();
-  const games = (await store.all()).filter((g) => g.id !== "draft");
-  return JSON.stringify({ application: "piolin_chess", schema: 1, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), draft: structuredClone(doc), games }, null, 2);
+  const entries = (await store.all()).filter((g) => g.id !== "draft");
+  const games = entries.filter((g) => !g.role), studies = entries.filter((g) => g.role);
+  return JSON.stringify({ application: "piolin_chess", schema: 1, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), draft: structuredClone(doc), games, studies }, null, 2);
 }
 function action(id, fn) {
   $2(id).addEventListener("click", () => Promise.resolve().then(fn).catch(showError));
@@ -6689,77 +6960,66 @@ async function importFromDialog(pgn2, studyPlayer = "") {
   }
 }
 action("import-confirm", () => importFromDialog($2("import-text").value));
+async function studyPgns(pgns, preferredPlayer, sourceDialog) {
+  const games = [];
+  let skipped = 0;
+  for (const pgn2 of pgns) {
+    try {
+      const game = importText(pgn2);
+      if (!studyGame(game)) {
+        skipped++;
+        continue;
+      }
+      markStudyPlayer(game, preferredPlayer);
+      games.push(game);
+    } catch {
+      skipped++;
+    }
+  }
+  if (!games.length) throw Error("No hay partidas PGN con ambos jugadores identificados y jugadas v\xE1lidas.");
+  await openStudy({ preferredPlayer, games, skipped });
+  sourceDialog.close();
+  return `${games.length} partidas disponibles. ${skipped} omitidas.`;
+}
 document.addEventListener("piolin:open-online-game", (event) => {
   const { pgn: pgn2, player } = event.detail;
-  $2("import-error").textContent = "";
-  $2("import-text").value = pgn2;
-  $2("online-dialog").close();
-  $2("import-dialog").showModal();
-  importFromDialog(pgn2, player);
+  studyPgns([pgn2], player, $2("online-dialog")).catch((error) => {
+    $2("online-status").textContent = error.message;
+  });
 });
-var savingBatch = false;
-async function savePgnBatch(pgns, studyPlayer = "") {
-  if (!storeReady) throw Error("La Biblioteca no est\xE1 disponible.");
-  if (savingBatch) throw Error("Ya se est\xE1 guardando un lote.");
-  savingBatch = true;
-  try {
-    const keys = new Set((await store.all()).filter((game) => game.id !== "draft").map(studyGame).filter(Boolean).map((game) => game.key));
-    const games = [], batchKeys = /* @__PURE__ */ new Set();
-    let duplicates = 0, skipped = 0;
-    for (const pgn2 of pgns) {
-      try {
-        const game = importText(pgn2), metadata = studyGame(game);
-        if (!metadata) {
-          skipped++;
-          continue;
-        }
-        batchKeys.add(metadata.key);
-        if (keys.has(metadata.key)) {
-          duplicates++;
-          continue;
-        }
-        keys.add(metadata.key);
-        markStudyPlayer(game, studyPlayer);
-        games.push({ ...game, id: crypto.randomUUID() });
-      } catch {
-        skipped++;
-      }
-    }
-    if (games.length) {
-      await store.putMany(games);
-      await updateLibrary();
-      navigator.storage?.persist?.().catch(() => {
-      });
-    }
-    return { message: `${games.length} guardadas \xB7 ${duplicates} repetidas \xB7 ${skipped} no aptas para el estudio.`, batchKeys };
-  } finally {
-    savingBatch = false;
-  }
-}
-document.addEventListener("piolin:save-pgn-batch", (event) => {
+document.addEventListener("piolin:study-pgn-batch", (event) => {
   const { pgns, player, resolve, reject } = event.detail;
-  savePgnBatch(pgns, player).then(async ({ message, batchKeys }) => {
-    if (batchKeys.size) {
-      await openStudy({ preferredPlayer: player, batchKeys });
-      $2("online-dialog").close();
-      toast(message);
-    }
-    return message;
-  }).then(resolve, reject);
+  studyPgns(pgns, player, $2("online-dialog")).then(resolve, reject);
 });
 action("import-batch", async () => {
   const output = $2("import-error");
-  output.classList.remove("error");
-  output.textContent = "Guardando partidas\u2026";
   try {
-    const pgns = $2("import-text").value.trim().split(/\n\s*\n(?=\[Event\s)/);
-    output.textContent = (await savePgnBatch(pgns)).message;
+    const pgns = $2("import-text").value.trim().split(/\r?\n\s*\r?\n(?=\[Event\s)/);
+    await studyPgns(pgns, "", $2("import-dialog"));
   } catch (error) {
     output.classList.add("error");
     output.textContent = error.message;
   }
 });
-var openStudy = setupStudy(() => store.all().then((games) => games.filter((game) => game.id !== "draft")), showError);
+var openStudy = setupStudy({
+  load: () => storeReady ? store.all().then((entries) => entries.filter((entry) => entry.id !== "draft")) : [],
+  save: async (study) => {
+    if (!storeReady) throw Error("La biblioteca no est\xE1 disponible en este navegador.");
+    await store.saveStudy(study, (doc2) => studyGame(doc2)?.key);
+    await updateLibrary();
+    navigator.storage?.persist?.().catch(() => {
+    });
+  },
+  showError
+});
+$2("library-studies").addEventListener("click", (event) => {
+  const id = event.target.closest("[data-study]")?.dataset.study;
+  const remove = event.target.closest("[data-remove-study]")?.dataset.removeStudy;
+  if (id) store.get(id).then((saved) => openStudy({ preferredPlayer: saved.name, saved })).catch(showError);
+  if (remove && confirm("\xBFEliminar el estudio de la biblioteca?")) {
+    store.remove(remove).then(updateLibrary).catch(showError);
+  }
+});
 action("export-pgn", () => download("piolin_partida.pgn", exportPgn(doc), "application/x-chess-pgn"));
 action("library-open", async () => {
   if (!storeReady) throw Error("No hay almacenamiento disponible.");

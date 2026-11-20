@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Chess, DEFAULT_POSITION } from 'chess.js';
-export const APP_VERSION='3.1.0';
+export const APP_VERSION='3.2.0';
 export const DEFAULT_FEN=DEFAULT_POSITION;
 export function positionAt(doc, cursor=doc.cursor) {
   const chess=new Chess(doc.initialFen);
@@ -100,7 +100,17 @@ export function parseBackup(text) {
     if(d.id==='draft' || ids.has(d.id)) throw Error('Identificadores duplicados en la copia.');
     ids.add(d.id); return d;
   });
-  return {games,draft:b.draft?{...validateDocument(b.draft),id:'draft'}:newDocument()};
+  const studies = (Array.isArray(b.studies) ? b.studies : []).map(study => {
+    if (!['profile','rival'].includes(study?.role) || typeof study.player !== 'string' ||
+        typeof study.name !== 'string' || !Array.isArray(study.records) ||
+        study.records.some(record => !Array.isArray(record.findings) ||
+          !Array.isArray(record.game?.colors) || !record.game.colors.every(color => ['w','b'].includes(color)))) {
+      throw Error('La copia contiene un estudio no compatible.');
+    }
+    return { ...study, id: typeof study.id === 'string' && /^study:[a-f0-9-]{36}$/.test(study.id) ? study.id : 'study:' + crypto.randomUUID(), records:
+      study.records.map(record => ({ ...record, game: { ...record.game, doc: validateDocument(record.game.doc) } })) };
+  });
+  return {games,studies,draft:b.draft?{...validateDocument(b.draft),id:'draft'}:newDocument()};
 }
 export function legalDests(chess) {
   const dests=new Map();

@@ -185,6 +185,7 @@ export async function analyzeStudyGame(game, analyze, onProgress, isPaused) {
       kind: classify(move, before, after), game: game.doc.title, ply: i + 1, loss,
       move: move.san, fen: move.before, color: move.color, best: before.bestMove,
       solution: pvToSan(move.before, before.evaluation.pv),
+      replyFen: move.after, replyBest: after.bestMove,
       reply: pvToSan(move.after, after.evaluation.pv),
     });
   }
@@ -219,4 +220,67 @@ export function summarize(records) {
     return { rhythm, count: games.length, patterns: patterns.slice(0, 3),
       chronological: games.every(({ game }) => Boolean(game.date)) };
   });
+}
+
+const positionKey = fen => fen.split(' ').slice(0, 4).join(' ');
+
+function openingBook(games, color) {
+  const book = new Map();
+  for (const game of games.filter(game => game.colors.includes(color))) {
+    const chess = new Chess(game.doc.initialFen);
+    if (chess.fen() !== new Chess().fen()) continue;
+    const seen = new Set();
+    for (const san of game.doc.moves.slice(0, 16)) {
+      const fen = positionKey(chess.fen());
+      const move = chess.move(san);
+      if (move.color !== color || seen.has(fen)) continue;
+      seen.add(fen);
+      if (!book.has(fen)) book.set(fen, new Map());
+      const choices = book.get(fen);
+      choices.set(move.san, (choices.get(move.san) || 0) + 1);
+    }
+  }
+  return book;
+}
+
+export async function prepareOpening(games, repertoire, ownColor, analyze) {
+  const opponent = openingBook(games, ownColor === 'w' ? 'b' : 'w');
+  const own = openingBook(repertoire, ownColor);
+  const ranked = (book, chess) => [...(book.get(positionKey(chess.fen())) || [])]
+    .sort((a, b) => b[1] - a[1]);
+  const root = new Chess();
+  if (!games.some(game => new Chess(game.doc.initialFen).fen() === root.fen())) return [];
+  const choose = async chess => {
+    const familiar = ranked(own, chess)[0];
+    const result = await analyze(chess.fen(), 12);
+    if (!result.bestMove) return null;
+    const line = pvToSan(chess.fen(), result.evaluation.pv);
+    const best = playLine(chess.fen(), [result.bestMove]).history()[0];
+    return { san: familiar?.[0] || best, familiar: familiar?.[1] || 0, best, line };
+  };
+  const first = ownColor === 'w' ? await choose(root) : null;
+  if (first) root.move(first.san);
+  const observed = ranked(opponent, root);
+  const total = observed.reduce((sum, [, count]) => sum + count, 0);
+  const plans = [];
+  for (const [move, count] of observed.slice(0, 3)) {
+    const chess = new Chess(root.fen());
+    chess.move(move);
+    const response = await choose(chess);
+    if (!response) continue;
+    chess.move(response.san);
+    const followups = ranked(opponent, chess).slice(0, 2).map(([reply, frequency]) => ({
+      reply, frequency,
+    }));
+    let alternate;
+    if (followups.length) {
+      const reply = (followups[1] || followups[0]).reply;
+      chess.move(reply);
+      const continuation = await choose(chess);
+      if (continuation) alternate = { reply, response: continuation };
+    }
+    plans.push({ first, move, count, total, response, followups, alternate });
+  }
+  if (!plans.length && first) plans.push({ first, followups: [] });
+  return plans;
 }

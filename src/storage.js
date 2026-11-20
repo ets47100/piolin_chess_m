@@ -26,8 +26,23 @@ export class LocalStore {
   putMany(docs){
     return this.tx('readwrite',store=>{for(const doc of docs)store.put(doc);});
   }
+  saveStudy(study, gameKey) {
+    return this.tx('readwrite', store => {
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const keys = new Set(request.result.filter(doc => doc.id !== 'draft' && !doc.role).map(gameKey));
+        for (const { game } of study.records) {
+          if (keys.has(game.key)) continue;
+          keys.add(game.key);
+          store.put({ ...game.doc, id: crypto.randomUUID() });
+        }
+        store.put(study);
+      };
+    });
+  }
   remove(id){return this.tx('readwrite',s=>s.delete(id));}
   restore(backup){return this.tx('readwrite',s=>{
     s.clear();for(const game of backup.games)s.put(game);s.put(backup.draft);
+    for(const study of backup.studies)s.put(study);
   });}
 }

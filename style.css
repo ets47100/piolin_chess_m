@@ -22,7 +22,7 @@
 .status-msg { font-size: 12px; color: #facc15; min-height: 18px; margin: 6px 0; }
 
 #study-progress{width:100%;accent-color:var(--green)}
-#study-board{display:block;width:100%;aspect-ratio:1;position:relative}
+#study-board,#study-replay-board{display:block;width:100%;aspect-ratio:1;position:relative}
 .study-group{border-top:1px solid var(--line);padding-top:10px;margin-top:14px}
 .study-group h4{margin-bottom:4px}
 .study-group button{margin:0 6px 8px 0;text-align:left}

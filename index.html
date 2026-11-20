@@ -229,7 +229,7 @@
   <p id="online-status" class="status-msg"></p>
   <div class="dialog-footer">
     <button id="online-fetch-btn" type="button" class="primary">Buscar y Descargar Partidas</button>
-    <button id="online-save-all" type="button" hidden>Guardar lote y estudiar</button>
+    <button id="online-save-all" type="button" hidden>Estudiar conjunto</button>
   </div>
   <div id="online-results" class="online-results"></div>
 </dialog>
@@ -244,7 +244,7 @@
   <p id="import-error" class="error" role="alert"></p>
   <div class="dialog-footer">
     <button id="load-example" type="button">Ejemplo</button>
-    <button id="import-batch" type="button">Guardar PGN en Biblioteca</button>
+    <button id="import-batch" type="button">Estudiar PGN</button>
     <button id="import-confirm" type="button" class="primary">Cargar</button>
   </div>
 </dialog>
@@ -255,6 +255,7 @@
     <button aria-label="Cerrar">×</button>
   </form>
   <button id="study-open" type="button" class="primary">Estudiar jugador</button>
+  <div id="library-studies"></div>
   <div id="library-list"></div>
 </dialog>
 
@@ -266,6 +267,11 @@
   <form id="study-form">
     <div class="form-grid">
       <label>Jugador <select id="study-player"></select></label>
+      <label>Enfoque <select id="study-role" required>
+        <option value="">Elige un enfoque</option>
+        <option value="profile">Mi perfil</option>
+        <option value="rival">Rival</option>
+      </select></label>
       <label>Ritmo
         <select id="study-rhythm">
           <option value="all">Todos, por separado</option>
@@ -277,7 +283,7 @@
           <option value="unknown">Sin identificar</option>
         </select>
       </label>
-      <label>Color
+      <label><span id="study-color-label">Color del jugador</span>
         <select id="study-color">
           <option value="all">Ambos</option>
           <option value="w">Blancas</option>
@@ -294,6 +300,7 @@
       </label>
     </div>
     <label id="study-scope" hidden><input id="study-only-batch" type="checkbox"> Solo este lote</label>
+    <label>Alcance <select id="study-single"><option value="">Conjunto de partidas</option></select></label>
     <div class="dialog-footer">
       <button id="study-start" class="primary" type="submit">Analizar partidas</button>
       <button id="study-pause" type="button" disabled>Pausar análisis</button>
@@ -302,6 +309,23 @@
   <p id="study-status" role="status"></p>
   <progress id="study-progress" aria-label="Progreso del estudio" value="0" hidden></progress>
   <div id="study-results"></div>
+  <form method="dialog" class="dialog-footer">
+    <button id="study-save" type="button" hidden>Guardar estudio en la biblioteca</button>
+    <button id="study-exit">Salir sin guardar</button>
+  </form>
+</dialog>
+
+<dialog id="study-replay">
+  <form method="dialog" class="dialog-header">
+    <h2 id="study-replay-title">Partida del estudio</h2>
+    <button aria-label="Cerrar">×</button>
+  </form>
+  <div id="study-replay-board" class="cg-wrap brown"></div>
+  <p id="study-replay-move" aria-live="polite"></p>
+  <div class="dialog-footer">
+    <button id="study-replay-prev" type="button">Anterior</button>
+    <button id="study-replay-next" type="button">Siguiente</button>
+  </div>
 </dialog>
 
 <dialog id="study-exercise">

@@ -51,7 +51,7 @@
     search.disabled = save.disabled = true;
     try {
       $('online-status').textContent = await new Promise((resolve, reject) => {
-        document.dispatchEvent(new CustomEvent('piolin:save-pgn-batch', {
+        document.dispatchEvent(new CustomEvent('piolin:study-pgn-batch', {
           detail: { pgns: found, player: foundUser, resolve, reject },
         }));
       });
@@ -113,7 +113,7 @@
       found = pgns;
       foundUser = user;
       save.hidden = false;
-      status.textContent = `${pgns.length} partidas encontradas. Guarda y estudia el lote, o abre una partida.`;
+      status.textContent = `${pgns.length} partidas encontradas. Estudia el conjunto o elige una partida.`;
       pgns.forEach((pgn, idx) => {
         const header = key => pgn.match(new RegExp('\\[' + key + '\\s+"([^"]+)"\\]'))?.[1] || '';
         const row = document.createElement('div'), description = document.createElement('div');
@@ -127,7 +127,7 @@
         button.type = 'button';
         button.dataset.loadIdx = idx;
         button.className = 'primary';
-        button.textContent = 'Analizar';
+        button.textContent = 'Estudiar partida';
         row.append(description, button);
         resultsBox.append(row);
       });
