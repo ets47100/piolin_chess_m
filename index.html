@@ -21,7 +21,6 @@
     <button id="library-open" class="nav-button">Biblioteca <span id="library-count" class="count">0</span></button>
     <span id="app-version"></span>
   </nav>
-  <button id="install-app" type="button" class="primary" hidden>Instalar</button>
 </header>
 
 <main>
@@ -64,6 +63,7 @@
       </div>
 
       <div class="board-actions">
+        <button id="explore-game" type="button">Explorar variante</button>
         <button id="play-bot-open" class="bot-btn">🤖 Jugar vs Máquina</button>
         <button id="online-btn-quick">☁️ Importar Online</button>
         <button id="import-open">↥ PGN / FEN</button>
@@ -148,6 +148,11 @@
 
   <!-- ELEMENTOS REQUERIDOS POR APP.JS -->
   <p id="origin-warning" class="warning" hidden>Abre la aplicación mediante el arrancador local.</p>
+  <div class="session-bar">
+    <button id="update-app" type="button">Actualizar</button>
+    <button id="install-app" type="button">Instalar</button>
+    <span id="update-status" role="status"></span>
+  </div>
   <p class="prototype-note">Piolín Chess · Stockfish 19 · <a href="licencias.html">Licencias y código fuente</a></p>
 </main>
 
@@ -255,7 +260,10 @@
     <button aria-label="Cerrar">×</button>
   </form>
   <button id="study-open" type="button" class="primary">Estudiar jugador</button>
+  <button id="lichess-studies-open" type="button">Estudios de Lichess</button>
+  <button id="traps-open" type="button">Gambitos y trampas</button>
   <div id="library-studies"></div>
+  <div id="library-lichess"></div>
   <div id="library-list"></div>
 </dialog>
 
@@ -325,6 +333,7 @@
   <div class="dialog-footer">
     <button id="study-replay-prev" type="button">Anterior</button>
     <button id="study-replay-next" type="button">Siguiente</button>
+    <button id="explore-replay" type="button">Explorar variante</button>
   </div>
 </dialog>
 
@@ -337,9 +346,63 @@
   <p id="study-exercise-feedback" role="status"></p>
   <div class="dialog-footer">
     <button id="study-exercise-reset" type="button">Volver a intentar</button>
+    <button id="explore-exercise" type="button">Explorar variante</button>
     <button id="study-exercise-reveal" type="button" class="primary">Ver solución</button>
   </div>
   <p id="study-exercise-solution" hidden></p>
+</dialog>
+
+<dialog id="install-dialog">
+  <form method="dialog" class="dialog-header">
+    <h2>Instalar Piolín Chess</h2><button aria-label="Cerrar">×</button>
+  </form>
+  <div class="dialog-footer">
+    <button id="install-shortcut" type="button">Crear acceso directo</button>
+    <button id="install-native" type="button" class="primary">Instalar como aplicación</button>
+  </div>
+  <p id="install-status" role="status">Elige cómo quieres abrir Piolín Chess.</p>
+</dialog>
+
+<dialog id="lichess-studies">
+  <form method="dialog" class="dialog-header">
+    <h2>Estudios de Lichess</h2><button aria-label="Cerrar">×</button>
+  </form>
+  <div class="dialog-footer">
+    <a href="https://lichess.org/study/all/popular" target="_blank" rel="noopener noreferrer">Por popularidad</a>
+    <a href="https://lichess.org/study/all/newest" target="_blank" rel="noopener noreferrer">Por fecha</a>
+  </div>
+  <p>Busca un estudio público en Lichess y pega aquí su enlace para elegir qué capítulos guardar.</p>
+  <form id="lichess-study-form">
+    <label>Enlace del estudio <input id="lichess-study-url" class="text-field" type="url" placeholder="https://lichess.org/study/…" required></label>
+    <button id="lichess-study-fetch" type="submit">Ver capítulos</button>
+  </form>
+  <p id="lichess-study-status" role="status"></p>
+  <div id="lichess-study-chapters"></div>
+  <button id="lichess-study-save" type="button" class="primary" hidden>Guardar capítulos seleccionados</button>
+</dialog>
+
+<dialog id="traps-dialog">
+  <form method="dialog" class="dialog-header">
+    <h2>Gambitos y trampas</h2><button aria-label="Cerrar">×</button>
+  </form>
+  <label>Color <select id="trap-color"><option value="">Ambos</option><option value="w">Blancas</option><option value="b">Negras</option></select></label>
+  <div id="trap-catalog"></div>
+</dialog>
+
+<dialog id="variation-dialog">
+  <form method="dialog" class="dialog-header">
+    <h2 id="variation-title">Explorar variante</h2><button aria-label="Cerrar">×</button>
+  </form>
+  <div id="variation-board" class="cg-wrap brown" role="application" aria-label="Tablero de variantes"></div>
+  <p id="variation-line" aria-live="polite"></p>
+  <p id="variation-comment"></p>
+  <div id="variation-choices" class="dialog-footer"></div>
+  <div class="dialog-footer">
+    <button id="variation-prev" type="button">Anterior</button>
+    <button id="variation-next" type="button">Siguiente</button>
+    <button id="variation-reset" type="button">Volver al punto de partida</button>
+    <button id="variation-save" type="button" hidden>Guardar variante</button>
+  </div>
 </dialog>
 
 <dialog id="promotion-dialog">

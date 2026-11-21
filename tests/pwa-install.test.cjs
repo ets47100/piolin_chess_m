@@ -6,15 +6,19 @@ const vm = require('node:vm');
 
 function setup() {
   const window = new EventTarget();
-  const button = new EventTarget();
-  button.hidden = true;
-  const errors = [];
+  window.matchMedia = () => ({ matches: false });
+  const elements = new Map(['install-dialog', 'install-status', 'install-app', 'install-native', 'install-shortcut']
+    .map(id => [id, new EventTarget()]));
+  elements.get('install-dialog').showModal = function () { this.open = true; };
   vm.runInNewContext(readFileSync('pwa-install.js', 'utf8'), {
-    window,
-    document: { getElementById: () => button },
-    console: { error: (...args) => errors.push(args) },
+    window, document: { getElementById: id => elements.get(id) }, navigator: {},
   });
-  return { window, button, errors };
+  return {
+    window,
+    click: id => elements.get(id).dispatchEvent(new Event('click')),
+    status: () => elements.get('install-status').textContent,
+    dialog: elements.get('install-dialog'),
+  };
 }
 
 function offer(window, prompt) {
@@ -24,33 +28,28 @@ function offer(window, prompt) {
   assert.equal(event.defaultPrevented, true);
 }
 
-test('el botón utiliza cada oferta una sola vez y vuelve a aparecer con una nueva', async () => {
-  const { window, button } = setup();
+test('el menú permanece disponible y el diálogo nativo usa cada oferta una vez', async () => {
+  const { window, click, dialog, status } = setup();
+  click('install-app');
+  assert.ok(dialog.open);
+  click('install-shortcut');
+  assert.match(status(), /Crear acceso directo/);
+  click('install-native');
+  assert.match(status(), /menú del navegador/);
   let calls = 0;
-  assert.equal(button.hidden, true);
   offer(window, async () => { calls++; });
-  assert.equal(button.hidden, false);
-  button.dispatchEvent(new Event('click'));
-  await Promise.resolve();
+  click('install-native');
+  click('install-native');
   assert.equal(calls, 1);
-  assert.equal(button.hidden, true);
-  button.dispatchEvent(new Event('click'));
-  assert.equal(calls, 1);
-  offer(window, async () => { calls++; });
-  assert.equal(button.hidden, false);
   window.dispatchEvent(new Event('appinstalled'));
-  assert.equal(button.hidden, true);
-  button.dispatchEvent(new Event('click'));
-  assert.equal(calls, 1);
+  click('install-native');
+  assert.match(status(), /ya está instalado/);
 });
 
-test('informa si falla el diálogo y espera otra oferta', async () => {
-  const { window, button, errors } = setup();
+test('si falla el diálogo ofrece el menú del navegador', async () => {
+  const { window, click, status } = setup();
   offer(window, async () => { throw new Error('fallo'); });
-  button.dispatchEvent(new Event('click'));
+  click('install-native');
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(button.hidden, true);
-  assert.equal(errors.length, 1);
-  offer(window, async () => {});
-  assert.equal(button.hidden, false);
+  assert.match(status(), /menú del navegador/);
 });

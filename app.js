@@ -10,7 +10,7 @@ var pos2key = (pos) => pos.every((x) => x >= 0 && x <= 7) ? allKeys[8 * pos[0] +
 var pos2keyUnsafe = (pos) => pos2key(pos);
 var key2pos = (k) => [k.charCodeAt(0) - 97, k.charCodeAt(1) - 49];
 var allPos = allKeys.map(key2pos);
-var allPosAndKey = allKeys.map((key, i) => ({ key, pos: allPos[i] }));
+var allPosAndKey = allKeys.map((key2, i) => ({ key: key2, pos: allPos[i] }));
 function memo(f) {
   let v;
   const ret = () => {
@@ -73,8 +73,8 @@ var createEl = (tagName, className) => {
     el.className = className;
   return el;
 };
-function computeSquareCenter(key, asWhite, bounds) {
-  const pos = key2pos(key);
+function computeSquareCenter(key2, asWhite, bounds) {
+  const pos = key2pos(key2);
   if (!asWhite) {
     pos[0] = 7 - pos[0];
     pos[1] = 7 - pos[1];
@@ -118,9 +118,9 @@ function render(mutation, state) {
   state.dom.redraw();
   return result;
 }
-var makePiece = (key, piece) => ({
-  key,
-  pos: key2pos(key),
+var makePiece = (key2, piece) => ({
+  key: key2,
+  pos: key2pos(key2),
   piece
 });
 var closer = (piece, pieces) => pieces.sort((p1, p2) => distanceSq(piece.pos, p1.pos) - distanceSq(piece.pos, p2.pos))[0];
@@ -130,17 +130,17 @@ function computePlan(prevPieces, current) {
   for (const [k, p] of prevPieces) {
     prePieces.set(k, makePiece(k, p));
   }
-  for (const key of allKeys) {
-    curP = current.pieces.get(key);
-    preP = prePieces.get(key);
+  for (const key2 of allKeys) {
+    curP = current.pieces.get(key2);
+    preP = prePieces.get(key2);
     if (curP) {
       if (preP) {
         if (!samePiece(curP, preP.piece)) {
           missings.push(preP);
-          news.push(makePiece(key, curP));
+          news.push(makePiece(key2, curP));
         }
       } else
-        news.push(makePiece(key, curP));
+        news.push(makePiece(key2, curP));
     } else if (preP)
       missings.push(preP);
   }
@@ -210,12 +210,12 @@ var rook = (ctx) => rookDir(...ctx.orig.pos, ...ctx.dest.pos);
 var queen = (ctx) => bishop(ctx) || rook(ctx);
 var king = (ctx) => kingDirNonCastling(...ctx.orig.pos, ...ctx.dest.pos) || ctx.orig.pos[1] === ctx.dest.pos[1] && ctx.orig.pos[1] === (ctx.color === "white" ? 0 : 7) && (ctx.orig.pos[0] === 4 && (ctx.dest.pos[0] === 2 && ctx.rookFilesFriendlies.includes(0) || ctx.dest.pos[0] === 6 && ctx.rookFilesFriendlies.includes(7)) || ctx.rookFilesFriendlies.includes(ctx.dest.pos[0]));
 var mobilityByRole = { pawn, knight, bishop, rook, queen, king };
-function premove(state, key) {
+function premove(state, key2) {
   const pieces = state.pieces;
-  const piece = pieces.get(key);
+  const piece = pieces.get(key2);
   if (!piece || piece.color === state.turnColor)
     return [];
-  const color = piece.color, friendlies = new Map([...pieces].filter(([_, p]) => p.color === color)), enemies = new Map([...pieces].filter(([_, p]) => p.color === opposite(color))), orig = { key, pos: key2pos(key) }, mobility = (ctx) => mobilityByRole[piece.role](ctx) && state.premovable.additionalPremoveRequirements(ctx), partialCtx = {
+  const color = piece.color, friendlies = new Map([...pieces].filter(([_, p]) => p.color === color)), enemies = new Map([...pieces].filter(([_, p]) => p.color === opposite(color))), orig = { key: key2, pos: key2pos(key2) }, mobility = (ctx) => mobilityByRole[piece.role](ctx) && state.premovable.additionalPremoveRequirements(ctx), partialCtx = {
     orig,
     role: piece.role,
     allPieces: pieces,
@@ -238,11 +238,11 @@ function toggleOrientation(state) {
   state.animation.current = state.draggable.current = state.selected = void 0;
 }
 function setPieces(state, pieces) {
-  for (const [key, piece] of pieces) {
+  for (const [key2, piece] of pieces) {
     if (piece)
-      state.pieces.set(key, piece);
+      state.pieces.set(key2, piece);
     else
-      state.pieces.delete(key);
+      state.pieces.delete(key2);
   }
 }
 function setCheck(state, color) {
@@ -267,10 +267,10 @@ function unsetPremove(state) {
     callUserFunction(state.premovable.events.unset);
   }
 }
-function setPredrop(state, role, key) {
+function setPredrop(state, role, key2) {
   unsetPremove(state);
-  state.predroppable.current = { role, key };
-  callUserFunction(state.predroppable.events.set, role, key);
+  state.predroppable.current = { role, key: key2 };
+  callUserFunction(state.predroppable.events.set, role, key2);
 }
 function unsetPredrop(state) {
   const pd = state.predroppable;
@@ -345,16 +345,16 @@ function baseMove(state, orig, dest) {
   callUserFunction(state.events.change);
   return captured || true;
 }
-function baseNewPiece(state, piece, key, force) {
-  if (state.pieces.has(key)) {
+function baseNewPiece(state, piece, key2, force) {
+  if (state.pieces.has(key2)) {
     if (force)
-      state.pieces.delete(key);
+      state.pieces.delete(key2);
     else
       return false;
   }
-  callUserFunction(state.events.dropNewPiece, piece, key);
-  state.pieces.set(key, piece);
-  state.lastMove = [key];
+  callUserFunction(state.events.dropNewPiece, piece, key2);
+  state.pieces.set(key2, piece);
+  state.lastMove = [key2];
   state.check = void 0;
   callUserFunction(state.events.change);
   state.movable.dests = void 0;
@@ -414,31 +414,31 @@ function dropNewPiece(state, orig, dest, force) {
   state.pieces.delete(orig);
   unselect(state);
 }
-function selectSquare(state, key, force) {
-  callUserFunction(state.events.select, key);
+function selectSquare(state, key2, force) {
+  callUserFunction(state.events.select, key2);
   if (state.selected) {
-    if (state.selected === key && !state.draggable.enabled) {
+    if (state.selected === key2 && !state.draggable.enabled) {
       unselect(state);
       state.hold.cancel();
       return;
-    } else if ((state.selectable.enabled || force) && state.selected !== key) {
-      if (userMove(state, state.selected, key)) {
+    } else if ((state.selectable.enabled || force) && state.selected !== key2) {
+      if (userMove(state, state.selected, key2)) {
         state.stats.dragged = false;
         return;
       }
     }
   }
-  if ((state.selectable.enabled || state.draggable.enabled) && (isMovable(state, key) || isPremovable(state, key))) {
-    setSelected(state, key);
+  if ((state.selectable.enabled || state.draggable.enabled) && (isMovable(state, key2) || isPremovable(state, key2))) {
+    setSelected(state, key2);
     state.hold.start();
   }
 }
-function setSelected(state, key) {
-  state.selected = key;
-  if (!isPremovable(state, key))
+function setSelected(state, key2) {
+  state.selected = key2;
+  if (!isPremovable(state, key2))
     state.premovable.dests = void 0;
   else if (!state.premovable.customDests)
-    state.premovable.dests = premove(state, key);
+    state.premovable.dests = premove(state, key2);
 }
 function unselect(state) {
   state.selected = void 0;
@@ -583,9 +583,9 @@ function read(fen) {
           col += nb - 48;
         else {
           const role = c.toLowerCase();
-          const key = pos2key([col, row]);
-          if (key)
-            pieces.set(key, {
+          const key2 = pos2key([col, row]);
+          if (key2)
+            pieces.set(key2, {
               role: roles[role],
               color: c === role ? "black" : "white"
             });
@@ -646,13 +646,13 @@ function configure(state, config) {
   }
 }
 function deepMerge(base, extend) {
-  for (const key in extend) {
-    if (key === "__proto__" || key === "constructor" || !Object.prototype.hasOwnProperty.call(extend, key))
+  for (const key2 in extend) {
+    if (key2 === "__proto__" || key2 === "constructor" || !Object.prototype.hasOwnProperty.call(extend, key2))
       continue;
-    if (Object.prototype.hasOwnProperty.call(base, key) && isPlainObject(base[key]) && isPlainObject(extend[key]))
-      deepMerge(base[key], extend[key]);
+    if (Object.prototype.hasOwnProperty.call(base, key2) && isPlainObject(base[key2]) && isPlainObject(extend[key2]))
+      deepMerge(base[key2], extend[key2]);
     else
-      base[key] = extend[key];
+      base[key2] = extend[key2];
   }
 }
 function isPlainObject(o) {
@@ -812,25 +812,25 @@ function start2(s, e) {
 }
 function pieceCloseTo(s, pos) {
   const asWhite = whitePov(s), bounds = s.dom.bounds(), radiusSq = Math.pow(s.touchIgnoreRadius * bounds.width / 16, 2) * 2;
-  for (const key of s.pieces.keys()) {
-    const center = computeSquareCenter(key, asWhite, bounds);
+  for (const key2 of s.pieces.keys()) {
+    const center = computeSquareCenter(key2, asWhite, bounds);
     if (distanceSq(center, pos) <= radiusSq)
       return true;
   }
   return false;
 }
 function dragNewPiece(s, piece, e, force) {
-  const key = "a0";
-  s.pieces.set(key, piece);
+  const key2 = "a0";
+  s.pieces.set(key2, piece);
   s.dom.redraw();
   const position = eventPosition(e);
   s.draggable.current = {
-    orig: key,
+    orig: key2,
     piece,
     origPos: position,
     pos: position,
     started: true,
-    element: () => pieceElementByKey(s, key),
+    element: () => pieceElementByKey(s, key2),
     originTarget: e.target,
     newPiece: true,
     force: !!force,
@@ -957,10 +957,10 @@ function removeDragElements(s) {
   if (e.ghost)
     setVisible(e.ghost, false);
 }
-function pieceElementByKey(s, key) {
+function pieceElementByKey(s, key2) {
   let el = s.dom.elements.board.firstChild;
   while (el) {
-    if (el.cgKey === key && el.tagName === "PIECE")
+    if (el.cgKey === key2 && el.tagName === "PIECE")
       return el;
     el = el.nextSibling;
   }
@@ -1005,9 +1005,9 @@ function start3(state, redrawAll) {
     setPieces(pieces) {
       anim((state2) => setPieces(state2, pieces), state);
     },
-    selectSquare(key, force) {
-      if (key)
-        anim((state2) => selectSquare(state2, key, force), state);
+    selectSquare(key2, force) {
+      if (key2)
+        anim((state2) => selectSquare(state2, key2, force), state);
       else if (state.selected) {
         unselect(state);
         state.dom.redraw();
@@ -1016,8 +1016,8 @@ function start3(state, redrawAll) {
     move(orig, dest) {
       anim((state2) => baseMove(state2, orig, dest), state);
     },
-    newPiece(piece, key) {
-      anim((state2) => baseNewPiece(state2, piece, key), state);
+    newPiece(piece, key2) {
+      anim((state2) => baseNewPiece(state2, piece, key2), state);
     },
     playPremove() {
       if (state.premovable.current) {
@@ -1400,19 +1400,19 @@ function computeSquareClasses(s) {
   }
   return squares;
 }
-function addSquare(squares, key, klass) {
-  const classes = squares.get(key);
+function addSquare(squares, key2, klass) {
+  const classes = squares.get(key2);
   if (classes)
-    squares.set(key, `${classes} ${klass}`);
+    squares.set(key2, `${classes} ${klass}`);
   else
-    squares.set(key, klass);
+    squares.set(key2, klass);
 }
-function appendValue(map, key, value2) {
-  const arr = map.get(key);
+function appendValue(map, key2, value2) {
+  const arr = map.get(key2);
   if (arr)
     arr.push(value2);
   else
-    map.set(key, [value2]);
+    map.set(key2, [value2]);
 }
 
 // node_modules/@lichess-org/chessground/dist/state.js
@@ -1562,9 +1562,9 @@ function syncDefs(d, shapes, els) {
     const brushes2 = /* @__PURE__ */ new Map();
     for (const s of thisPlane.filter((s2) => s2.shape.dest && s2.shape.brush)) {
       const brush = makeCustomBrush(d.brushes[s.shape.brush], s.shape.modifiers);
-      const { key, color } = hiliteOf(s.shape);
-      if (key && color)
-        brushes2.set(key, { key, color, opacity: 1, lineWidth: 1 });
+      const { key: key2, color } = hiliteOf(s.shape);
+      if (key2 && color)
+        brushes2.set(key2, { key: key2, color, opacity: 1, lineWidth: 1 });
       brushes2.set(brush.key, brush);
     }
     const keysInDom = /* @__PURE__ */ new Set();
@@ -1573,8 +1573,8 @@ function syncDefs(d, shapes, els) {
       keysInDom.add(el.getAttribute("cgKey"));
       el = el.nextElementSibling;
     }
-    for (const [key, brush] of brushes2.entries()) {
-      if (!keysInDom.has(key))
+    for (const [key2, brush] of brushes2.entries()) {
+      if (!keysInDom.has(key2))
         defsEl.appendChild(renderMarker(brush));
     }
   }
@@ -1762,9 +1762,9 @@ var isShort = (dest, dests) => !!dest && dests.has(dest) && anyTwoCloserThan90De
 var createElement = (tagName) => document.createElementNS("http://www.w3.org/2000/svg", tagName);
 var angleCount = (dest, dests) => dest && dests.has(dest) ? dests.get(dest).size : 0;
 function setAttributes(el, attrs) {
-  for (const key in attrs) {
-    if (Object.prototype.hasOwnProperty.call(attrs, key))
-      el.setAttribute(key, attrs[key]);
+  for (const key2 in attrs) {
+    if (Object.prototype.hasOwnProperty.call(attrs, key2))
+      el.setAttribute(key2, attrs[key2]);
   }
   return el;
 }
@@ -2194,8 +2194,8 @@ function peg$parse(input, options) {
   var peg$f3 = function(root, marker) {
     return { root, marker };
   };
-  var peg$f4 = function(comment, moves) {
-    return lineToTree(rootNode(comment), ...moves.flat());
+  var peg$f4 = function(comment, moves2) {
+    return lineToTree(rootNode(comment), ...moves2.flat());
   };
   var peg$f5 = function(san, suffix, nag, comment, variations) {
     return node(san, suffix, nag, comment, variations);
@@ -4018,17 +4018,17 @@ function validateFen(fen) {
   }
   return { ok: true };
 }
-function getDisambiguator(move3, moves) {
+function getDisambiguator(move3, moves2) {
   const from = move3.from;
   const to = move3.to;
   const piece = move3.piece;
   let ambiguities = 0;
   let sameRank = 0;
   let sameFile = 0;
-  for (let i = 0, len = moves.length; i < len; i++) {
-    const ambigFrom = moves[i].from;
-    const ambigTo = moves[i].to;
-    const ambigPiece = moves[i].piece;
+  for (let i = 0, len = moves2.length; i < len; i++) {
+    const ambigFrom = moves2[i].from;
+    const ambigTo = moves2[i].to;
+    const ambigPiece = moves2[i].piece;
     if (piece === ambigPiece && from !== ambigFrom && to === ambigTo) {
       ambiguities++;
       if (rank(from) === rank(ambigFrom)) {
@@ -4050,12 +4050,12 @@ function getDisambiguator(move3, moves) {
   }
   return "";
 }
-function addMove(moves, color, from, to, piece, captured = void 0, flags = BITS.NORMAL) {
+function addMove(moves2, color, from, to, piece, captured = void 0, flags = BITS.NORMAL) {
   const r = rank(to);
   if (piece === PAWN && (r === RANK_1 || r === RANK_8)) {
     for (let i = 0; i < PROMOTIONS.length; i++) {
       const promotion = PROMOTIONS[i];
-      moves.push({
+      moves2.push({
         color,
         from,
         to,
@@ -4066,7 +4066,7 @@ function addMove(moves, color, from, to, piece, captured = void 0, flags = BITS.
       });
     }
   } else {
-    moves.push({
+    moves2.push({
       color,
       from,
       to,
@@ -4572,17 +4572,17 @@ var Chess = class {
     return this.isCheckmate() || this.isDraw();
   }
   moves({ verbose = false, square = void 0, piece = void 0 } = {}) {
-    const moves = this._moves({ square, piece });
+    const moves2 = this._moves({ square, piece });
     if (verbose) {
-      return moves.map((move3) => new Move(this, move3));
+      return moves2.map((move3) => new Move(this, move3));
     } else {
-      return moves.map((move3) => this._moveToSan(move3, moves));
+      return moves2.map((move3) => this._moveToSan(move3, moves2));
     }
   }
   _moves({ legal = true, piece = void 0, square = void 0 } = {}) {
     const forSquare = square ? square.toLowerCase() : void 0;
     const forPiece = piece?.toLowerCase();
-    const moves = [];
+    const moves2 = [];
     const us = this._turn;
     const them = swapColor(us);
     let firstSquare = Ox88.a8;
@@ -4611,10 +4611,10 @@ var Chess = class {
           continue;
         to = from + PAWN_OFFSETS[us][0];
         if (!this._board[to]) {
-          addMove(moves, us, from, to, PAWN);
+          addMove(moves2, us, from, to, PAWN);
           to = from + PAWN_OFFSETS[us][1];
           if (SECOND_RANK[us] === rank(from) && !this._board[to]) {
-            addMove(moves, us, from, to, PAWN, void 0, BITS.BIG_PAWN);
+            addMove(moves2, us, from, to, PAWN, void 0, BITS.BIG_PAWN);
           }
         }
         for (let j = 2; j < 4; j++) {
@@ -4622,9 +4622,9 @@ var Chess = class {
           if (to & 136)
             continue;
           if (this._board[to]?.color === them) {
-            addMove(moves, us, from, to, PAWN, this._board[to].type, BITS.CAPTURE);
+            addMove(moves2, us, from, to, PAWN, this._board[to].type, BITS.CAPTURE);
           } else if (to === this._epSquare) {
-            addMove(moves, us, from, to, PAWN, PAWN, BITS.EP_CAPTURE);
+            addMove(moves2, us, from, to, PAWN, PAWN, BITS.EP_CAPTURE);
           }
         }
       } else {
@@ -4638,11 +4638,11 @@ var Chess = class {
             if (to & 136)
               break;
             if (!this._board[to]) {
-              addMove(moves, us, from, to, type);
+              addMove(moves2, us, from, to, type);
             } else {
               if (this._board[to].color === us)
                 break;
-              addMove(moves, us, from, to, type, this._board[to].type, BITS.CAPTURE);
+              addMove(moves2, us, from, to, type, this._board[to].type, BITS.CAPTURE);
               break;
             }
             if (type === KNIGHT || type === KING)
@@ -4657,26 +4657,26 @@ var Chess = class {
           const castlingFrom = this._kings[us];
           const castlingTo = castlingFrom + 2;
           if (!this._board[castlingFrom + 1] && !this._board[castlingTo] && !this._attacked(them, this._kings[us]) && !this._attacked(them, castlingFrom + 1) && !this._attacked(them, castlingTo)) {
-            addMove(moves, us, this._kings[us], castlingTo, KING, void 0, BITS.KSIDE_CASTLE);
+            addMove(moves2, us, this._kings[us], castlingTo, KING, void 0, BITS.KSIDE_CASTLE);
           }
         }
         if (this._castling[us] & BITS.QSIDE_CASTLE) {
           const castlingFrom = this._kings[us];
           const castlingTo = castlingFrom - 2;
           if (!this._board[castlingFrom - 1] && !this._board[castlingFrom - 2] && !this._board[castlingFrom - 3] && !this._attacked(them, this._kings[us]) && !this._attacked(them, castlingFrom - 1) && !this._attacked(them, castlingTo)) {
-            addMove(moves, us, this._kings[us], castlingTo, KING, void 0, BITS.QSIDE_CASTLE);
+            addMove(moves2, us, this._kings[us], castlingTo, KING, void 0, BITS.QSIDE_CASTLE);
           }
         }
       }
     }
     if (!legal || this._kings[us] === -1) {
-      return moves;
+      return moves2;
     }
     const legalMoves = [];
-    for (let i = 0, len = moves.length; i < len; i++) {
-      this._makeMove(moves[i]);
+    for (let i = 0, len = moves2.length; i < len; i++) {
+      this._makeMove(moves2[i]);
       if (!this._isKingAttacked(us)) {
-        legalMoves.push(moves[i]);
+        legalMoves.push(moves2[i]);
       }
       this._undoMove();
     }
@@ -4689,10 +4689,10 @@ var Chess = class {
     } else if (move3 === null) {
       moveObj = this._moveFromSan(SAN_NULLMOVE, strict);
     } else if (typeof move3 === "object") {
-      const moves = this._moves();
-      for (let i = 0, len = moves.length; i < len; i++) {
-        if (move3.from === algebraic(moves[i].from) && move3.to === algebraic(moves[i].to) && (!("promotion" in moves[i]) || move3.promotion === moves[i].promotion)) {
-          moveObj = moves[i];
+      const moves2 = this._moves();
+      for (let i = 0, len = moves2.length; i < len; i++) {
+        if (move3.from === algebraic(moves2[i].from) && move3.to === algebraic(moves2[i].to) && (!("promotion" in moves2[i]) || move3.promotion === moves2[i].promotion)) {
+          moveObj = moves2[i];
           break;
         }
       }
@@ -4905,10 +4905,10 @@ var Chess = class {
     while (this._history.length > 0) {
       reversedHistory.push(this._undoMove());
     }
-    const moves = [];
+    const moves2 = [];
     let moveString = "";
     if (reversedHistory.length === 0) {
-      moves.push(appendComment(""));
+      moves2.push(appendComment(""));
     }
     while (reversedHistory.length > 0) {
       moveString = appendComment(moveString);
@@ -4921,7 +4921,7 @@ var Chess = class {
         moveString = moveString ? `${moveString} ${prefix}` : prefix;
       } else if (move3.color === "w") {
         if (moveString.length) {
-          moves.push(moveString);
+          moves2.push(moveString);
         }
         moveString = this._moveNumber + ".";
       }
@@ -4929,11 +4929,11 @@ var Chess = class {
       this._makeMove(move3);
     }
     if (moveString.length) {
-      moves.push(appendComment(moveString));
+      moves2.push(appendComment(moveString));
     }
-    moves.push(this._header.Result || "*");
+    moves2.push(this._header.Result || "*");
     if (maxWidth === 0) {
-      return result.join("") + moves.join(" ");
+      return result.join("") + moves2.join(" ");
     }
     const strip = function() {
       if (result.length > 0 && result[result.length - 1] === " ") {
@@ -4965,14 +4965,14 @@ var Chess = class {
       return width;
     };
     let currentWidth = 0;
-    for (let i = 0; i < moves.length; i++) {
-      if (currentWidth + moves[i].length > maxWidth) {
-        if (moves[i].includes("{")) {
-          currentWidth = wrapComment(currentWidth, moves[i]);
+    for (let i = 0; i < moves2.length; i++) {
+      if (currentWidth + moves2[i].length > maxWidth) {
+        if (moves2[i].includes("{")) {
+          currentWidth = wrapComment(currentWidth, moves2[i]);
           continue;
         }
       }
-      if (currentWidth + moves[i].length > maxWidth && i !== 0) {
+      if (currentWidth + moves2[i].length > maxWidth && i !== 0) {
         if (result[result.length - 1] === " ") {
           result.pop();
         }
@@ -4982,8 +4982,8 @@ var Chess = class {
         result.push(" ");
         currentWidth++;
       }
-      result.push(moves[i]);
-      currentWidth += moves[i].length;
+      result.push(moves2[i]);
+      currentWidth += moves2[i].length;
     }
     return result.join("");
   }
@@ -4999,13 +4999,13 @@ var Chess = class {
     return this._header;
   }
   // TODO: value validation per spec
-  setHeader(key, value2) {
-    this._header[key] = value2 ?? SEVEN_TAG_ROSTER[key] ?? null;
+  setHeader(key2, value2) {
+    this._header[key2] = value2 ?? SEVEN_TAG_ROSTER[key2] ?? null;
     return this.getHeaders();
   }
-  removeHeader(key) {
-    if (key in this._header) {
-      this._header[key] = SEVEN_TAG_ROSTER[key] || null;
+  removeHeader(key2) {
+    if (key2 in this._header) {
+      this._header[key2] = SEVEN_TAG_ROSTER[key2] || null;
       return true;
     }
     return false;
@@ -5013,9 +5013,9 @@ var Chess = class {
   // return only non-null headers (omit placemarker nulls)
   getHeaders() {
     const nonNullHeaders = {};
-    for (const [key, value2] of Object.entries(this._header)) {
+    for (const [key2, value2] of Object.entries(this._header)) {
       if (value2 !== null) {
-        nonNullHeaders[key] = value2;
+        nonNullHeaders[key2] = value2;
       }
     }
     return nonNullHeaders;
@@ -5028,11 +5028,11 @@ var Chess = class {
     this.reset();
     const headers = parsedPgn.headers;
     let fen = "";
-    for (const key in headers) {
-      if (key.toLowerCase() === "fen") {
-        fen = headers[key];
+    for (const key2 in headers) {
+      if (key2.toLowerCase() === "fen") {
+        fen = headers[key2];
       }
-      this.header(key, headers[key]);
+      this.header(key2, headers[key2]);
     }
     if (!strict) {
       if (fen) {
@@ -5078,7 +5078,7 @@ var Chess = class {
    * 4. ... Nge7 is overly disambiguated because the knight on c6 is pinned
    * 4. ... Ne7 is technically the valid SAN
    */
-  _moveToSan(move3, moves) {
+  _moveToSan(move3, moves2) {
     let output = "";
     if (move3.flags & BITS.KSIDE_CASTLE) {
       output = "O-O";
@@ -5088,7 +5088,7 @@ var Chess = class {
       return SAN_NULLMOVE;
     } else {
       if (move3.piece !== PAWN) {
-        const disambiguator = getDisambiguator(move3, moves);
+        const disambiguator = getDisambiguator(move3, moves2);
         output += move3.piece.toUpperCase() + disambiguator;
       }
       if (move3.flags & (BITS.CAPTURE | BITS.EP_CAPTURE)) {
@@ -5134,10 +5134,10 @@ var Chess = class {
       return res;
     }
     let pieceType = inferPieceType(cleanMove);
-    let moves = this._moves({ legal: true, piece: pieceType });
-    for (let i = 0, len = moves.length; i < len; i++) {
-      if (cleanMove === strippedSan(this._moveToSan(moves[i], moves))) {
-        return moves[i];
+    let moves2 = this._moves({ legal: true, piece: pieceType });
+    for (let i = 0, len = moves2.length; i < len; i++) {
+      if (cleanMove === strippedSan(this._moveToSan(moves2[i], moves2))) {
+        return moves2[i];
       }
     }
     if (strict) {
@@ -5171,24 +5171,24 @@ var Chess = class {
       }
     }
     pieceType = inferPieceType(cleanMove);
-    moves = this._moves({
+    moves2 = this._moves({
       legal: true,
       piece: piece ? piece : pieceType
     });
     if (!to) {
       return null;
     }
-    for (let i = 0, len = moves.length; i < len; i++) {
+    for (let i = 0, len = moves2.length; i < len; i++) {
       if (!from) {
-        if (cleanMove === strippedSan(this._moveToSan(moves[i], moves)).replace("x", "")) {
-          return moves[i];
+        if (cleanMove === strippedSan(this._moveToSan(moves2[i], moves2)).replace("x", "")) {
+          return moves2[i];
         }
-      } else if ((!piece || piece.toLowerCase() == moves[i].piece) && Ox88[from] == moves[i].from && Ox88[to] == moves[i].to && (!promotion || promotion.toLowerCase() == moves[i].promotion)) {
-        return moves[i];
+      } else if ((!piece || piece.toLowerCase() == moves2[i].piece) && Ox88[from] == moves2[i].from && Ox88[to] == moves2[i].to && (!promotion || promotion.toLowerCase() == moves2[i].promotion)) {
+        return moves2[i];
       } else if (overlyDisambiguated) {
-        const square = algebraic(moves[i].from);
-        if ((!piece || piece.toLowerCase() == moves[i].piece) && Ox88[to] == moves[i].to && (from == square[0] || from == square[1]) && (!promotion || promotion.toLowerCase() == moves[i].promotion)) {
-          return moves[i];
+        const square = algebraic(moves2[i].from);
+        if ((!piece || piece.toLowerCase() == moves2[i].piece) && Ox88[to] == moves2[i].to && (from == square[0] || from == square[1]) && (!promotion || promotion.toLowerCase() == moves2[i].promotion)) {
+          return moves2[i];
         }
       }
     }
@@ -5218,11 +5218,11 @@ var Chess = class {
     return s;
   }
   perft(depth) {
-    const moves = this._moves({ legal: false });
+    const moves2 = this._moves({ legal: false });
     let nodes = 0;
     const color = this._turn;
-    for (let i = 0, len = moves.length; i < len; i++) {
-      this._makeMove(moves[i]);
+    for (let i = 0, len = moves2.length; i < len; i++) {
+      this._makeMove(moves2[i]);
       if (!this._isKingAttacked(color)) {
         if (depth - 1 > 0) {
           nodes += this.perft(depth - 1);
@@ -5394,8 +5394,77 @@ var Chess = class {
   }
 };
 
+// src/variations.js
+function moveLabel(fen, san) {
+  const [, turn, , , , number] = fen.split(" ");
+  return number + (turn === "w" ? ". " : "... ") + san;
+}
+function lineText(initialFen, moves2) {
+  const chess = new Chess(initialFen);
+  return moves2.map((san, index) => {
+    const label = index === 0 || chess.turn() === "w" ? moveLabel(chess.fen(), san) : san;
+    chess.move(san);
+    return label;
+  }).join(" ");
+}
+function makeNode(fen, parent, san) {
+  return { fen, parent, san, children: [], comment: "" };
+}
+function addMove2(node2, input) {
+  const move3 = new Chess(node2.fen).move(input);
+  const existing = node2.children.find((child2) => child2.san === move3.san);
+  if (existing) return existing;
+  const child = makeNode(move3.after, node2, move3.san);
+  node2.children.push(child);
+  return child;
+}
+function readPgn(root, pgn2, strictMain) {
+  let node2 = root;
+  const returns = [];
+  const tokens = pgn2.matchAll(/\[[A-Za-z][A-Za-z0-9_]*\s+"(?:\\.|[^"\\])*"\s*\]|\{[^}]*\}|;[^\r\n]*|[()]|\$\d+|\d+\.+|[^\s{}();\[\]$]+/g);
+  for (const [token] of tokens) {
+    if (token[0] === "[" || token[0] === "$" || /^\d+\.+$|^\.\.\.$/.test(token)) continue;
+    if (/^(1-0|0-1|1\/2-1\/2|\*)$/.test(token)) {
+      if (!returns.length) break;
+      continue;
+    }
+    if (token === "(") {
+      returns.push(node2);
+      node2 = node2?.parent ?? node2;
+    } else if (token === ")") {
+      node2 = returns.pop();
+    } else if (node2 && (token[0] === "{" || token[0] === ";")) {
+      const comment = token.slice(1, token[0] === "{" ? -1 : void 0).trim();
+      if (comment) node2.comment += (node2.comment ? "\n" : "") + comment;
+    } else if (node2) {
+      try {
+        node2 = addMove2(node2, token);
+      } catch (error) {
+        if (strictMain && !returns.length) throw error;
+        node2 = void 0;
+      }
+    }
+  }
+  return returns.length ? returns[0] : node2;
+}
+function pgnMainLine(initialFen, pgn2) {
+  return nodeMoves(readPgn(makeNode(initialFen), pgn2, true));
+}
+function moveTree(doc2) {
+  const root = makeNode(doc2.initialFen);
+  doc2.moves.reduce(addMove2, root);
+  if (doc2.sourcePgn) readPgn(root, doc2.sourcePgn, false);
+  for (const line of doc2.variations || []) line.reduce(addMove2, root);
+  return root;
+}
+function nodeMoves(node2) {
+  const moves2 = [];
+  for (let current = node2; current.parent; current = current.parent) moves2.push(current.san);
+  return moves2.reverse();
+}
+
 // src/model.js
-var APP_VERSION = "3.2.0";
+var APP_VERSION = "3.3.0";
 var DEFAULT_FEN = DEFAULT_POSITION;
 function positionAt(doc2, cursor = doc2.cursor) {
   const chess = new Chess(doc2.initialFen);
@@ -5422,6 +5491,17 @@ function validateDocument(value2) {
   const chess = new Chess(value2.initialFen);
   validateEngineFen(chess.fen());
   for (const move3 of value2.moves) chess.move(move3);
+  const variations = [];
+  if (Array.isArray(value2.variations)) {
+    for (const line of value2.variations.slice(0, 100)) {
+      if (!Array.isArray(line) || line.length > 6e3 || line.some((san) => typeof san !== "string" || san.length > 20)) continue;
+      try {
+        const branch = new Chess(value2.initialFen);
+        variations.push(line.map((san) => branch.move(san).san));
+      } catch {
+      }
+    }
+  }
   const analyses = {};
   if (value2.analyses && typeof value2.analyses === "object" && !Array.isArray(value2.analyses)) {
     for (const [fen, result] of Object.entries(value2.analyses).slice(-32)) {
@@ -5447,6 +5527,7 @@ function validateDocument(value2) {
     cursor: value2.cursor,
     notes: value2.notes,
     orientation: value2.orientation,
+    ...variations.length ? { variations } : {},
     depth: [10, 12, 14, 16, 18, 20].includes(value2.depth) ? value2.depth : 14,
     analyses,
     ...typeof value2.libraryId === "string" && value2.libraryId.length < 100 ? { libraryId: value2.libraryId } : {},
@@ -5502,9 +5583,10 @@ function importText(text) {
 function exportPgn(doc2) {
   const chess = positionAt(doc2, doc2.moves.length);
   if (doc2.sourcePgn) {
-    const original = new Chess();
-    original.loadPgn(doc2.sourcePgn);
-    if (JSON.stringify(original.history()) === JSON.stringify(doc2.moves)) return doc2.sourcePgn;
+    try {
+      if (JSON.stringify(pgnMainLine(doc2.initialFen, doc2.sourcePgn)) === JSON.stringify(doc2.moves)) return doc2.sourcePgn;
+    } catch {
+    }
   }
   chess.setHeader("Event", doc2.title);
   chess.setHeader("White", "Blancas");
@@ -5538,9 +5620,9 @@ function legalDests(chess) {
   }
   return dests;
 }
-function pvToSan(fen, moves) {
+function pvToSan(fen, moves2) {
   const game = new Chess(fen), out = [];
-  for (const m of moves.slice(0, 12)) {
+  for (const m of moves2.slice(0, 12)) {
     try {
       const before = game.turn(), n = game.moveNumber();
       const played = game.move({ from: m.slice(0, 2), to: m.slice(2, 4), promotion: m[4] });
@@ -5565,14 +5647,14 @@ function rhythmFor(pgn2) {
   const explicit = pgnHeader(pgn2, "PiolinRhythm");
   if (explicit !== "unknown" && Object.hasOwn(rhythms, explicit)) return explicit;
   const event = pgnHeader(pgn2, "Event").toLowerCase();
-  for (const [key, pattern] of Object.entries({
+  for (const [key2, pattern] of Object.entries({
     bullet: /\bbullet\b/,
     blitz: /\bblitz\b/,
     rapid: /\brapid\b/,
     classical: /\bclassical\b/,
     daily: /\b(daily|correspondence)\b/
   })) {
-    if (pattern.test(event)) return key;
+    if (pattern.test(event)) return key2;
   }
   const control = pgnHeader(pgn2, "TimeControl");
   if (/^1\/\d+$/.test(control)) return "daily";
@@ -5696,23 +5778,23 @@ function classify(move3, before, after) {
 }
 async function analyzeStudyGame(game, analyze, onProgress, isPaused) {
   const chess = new Chess(game.doc.initialFen);
-  const moves = game.doc.moves.map((san) => chess.move(san));
+  const moves2 = game.doc.moves.map((san) => chess.move(san));
   const scans = /* @__PURE__ */ new Map();
   const evaluate = async (fen, depth) => {
-    const key = depth + " " + fen;
-    if (!scans.has(key)) {
+    const key2 = depth + " " + fen;
+    if (!scans.has(key2)) {
       const position = new Chess(fen);
       const evaluation = position.isCheckmate() ? { type: "mate", value: 0, bound: "exact", pv: [] } : position.isStalemate() || position.isInsufficientMaterial() ? { type: "cp", value: 0, bound: "exact", pv: [] } : null;
-      scans.set(key, evaluation ? { evaluation, bestMove: null } : await analyze(fen, depth));
+      scans.set(key2, evaluation ? { evaluation, bestMove: null } : await analyze(fen, depth));
     }
-    return scans.get(key);
+    return scans.get(key2);
   };
   const findings = [];
-  for (let i = 0; i < moves.length; i++) {
+  for (let i = 0; i < moves2.length; i++) {
     if (isPaused()) return null;
-    const move3 = moves[i];
+    const move3 = moves2[i];
     if (!game.colors.includes(move3.color)) continue;
-    onProgress(i + 1, moves.length);
+    onProgress(i + 1, moves2.length);
     const first = await evaluate(move3.before, 8);
     const second = await evaluate(move3.after, 8);
     if (lossOf(first, second, move3.color) < 110) continue;
@@ -6027,9 +6109,220 @@ var LocalEngine = class {
   }
 };
 
+// src/opening-traps.js
+var entries = [
+  {
+    name: "Gambito Evans",
+    kind: "gambit",
+    prefix: "e4 e5 Nf3 Nc6 Bc4 Bc5",
+    offer: "b4",
+    response: "Bxb4",
+    follow: "c3 Ba5 d4",
+    defense: "Bb6",
+    safe: "a4",
+    idea: "Cede el pe\xF3n de b para ganar tiempos contra el alfil y ocupar el centro con d4."
+  },
+  {
+    name: "Gambito dan\xE9s",
+    kind: "gambit",
+    prefix: "e4 e5 d4 exd4",
+    offer: "c3",
+    response: "dxc3",
+    follow: "Bc4 cxb2 Bxb2",
+    defense: "d5",
+    safe: "exd5",
+    idea: "Si aceptan los peones, activa los alfiles. Ante \u2026d5, calcula el cambio central de inmediato."
+  },
+  {
+    name: "Gambito Smith-Morra",
+    kind: "gambit",
+    prefix: "e4 c5 d4 cxd4",
+    offer: "c3",
+    response: "dxc3",
+    follow: "Nxc3 Nc6 Nf3",
+    defense: "Nf6",
+    safe: "e5",
+    idea: "Entr\xE9gale un pe\xF3n a la Siciliana para desarrollar con rapidez y usar las columnas c y d."
+  },
+  {
+    name: "Gambito escoc\xE9s",
+    kind: "gambit",
+    prefix: "e4 e5 Nf3 Nc6 d4 exd4",
+    offer: "Bc4",
+    response: "Bc5",
+    follow: "c3 Nf6 O-O",
+    defense: "Nf6",
+    safe: "e5",
+    idea: "Desarrolla el alfil hacia f7 y prepara c3 para recuperar espacio en el centro."
+  },
+  {
+    name: "Trampa Milner-Barry en la Francesa",
+    kind: "trap",
+    prefix: "e4 e6 d4 d5 e5 c5 c3 Nc6 Nf3 Qb6 Bd3 cxd4",
+    offer: "cxd4",
+    response: "Nxd4",
+    follow: "Nxd4 Qxd4 Bb5+ Bd7 Qxd4",
+    defense: "Bd7",
+    safe: "O-O",
+    idea: "Si el rival captura en d4 y despu\xE9s recaptura con la dama, Ab5+ despeja la columna y permite tomar la dama negra tras responder al jaque."
+  },
+  {
+    name: "Trampa de Legal",
+    kind: "trap",
+    prefix: "e4 e5 Nf3 Nc6 Bc4 d6 Nc3 Bg4 h3 Bh5",
+    offer: "Nxe5",
+    response: "Bxd1",
+    follow: "Bxf7+ Ke7 Nd5#",
+    defense: "Nxe5",
+    safe: "Qxh5",
+    idea: "La captura de dama permite mate. Si recapturan con el caballo, toma el alfil de h5."
+  },
+  {
+    name: "Gambito Budapest",
+    kind: "gambit",
+    prefix: "d4 Nf6 c4",
+    offer: "e5",
+    response: "dxe5",
+    follow: "Ng4 Nf3 Nc6",
+    defense: "e3",
+    safe: "exd4 exd4 d5",
+    idea: "Disputa e5 con el caballo y desarrolla las piezas. La captura blanca es una respuesta normal."
+  },
+  {
+    name: "Trampa del Budapest",
+    kind: "trap",
+    prefix: "d4 Nf6 c4 e5 dxe5 Ng4 Bf4 Nc6 Nf3 Bb4+ Nbd2 Qe7 a3",
+    offer: "Ngxe5",
+    response: "axb4",
+    follow: "Nd3#",
+    defense: "Nxe5",
+    safe: "Nxe5",
+    idea: "El pe\xF3n de e2 est\xE1 clavado por la dama. Si las blancas toman en b4, el caballo da mate en d3."
+  },
+  {
+    name: "Contragambito Albin",
+    kind: "gambit",
+    prefix: "d4 d5 c4",
+    offer: "e5",
+    response: "dxe5",
+    follow: "d4 Nf3 Nc6",
+    defense: "cxd5",
+    safe: "exd4",
+    idea: "Avanza el pe\xF3n a d4 si aceptan el gambito y gana espacio para desarrollar las piezas."
+  },
+  {
+    name: "Trampa de Lasker en el Albin",
+    kind: "trap",
+    prefix: "d4 d5 c4 e5 dxe5 d4 e3",
+    offer: "Bb4+",
+    response: "Bd2",
+    follow: "dxe3 Bxb4 exf2+ Ke2 fxg1=N+",
+    defense: "Nd2",
+    safe: "dxe3 fxe3 Nc6",
+    idea: "Si las blancas interponen el alfil, el pe\xF3n puede capturar en g1 con promoci\xF3n a caballo y jaque en la l\xEDnea mostrada."
+  },
+  {
+    name: "Trampa de Blackburne",
+    kind: "trap",
+    prefix: "e4 e5 Nf3 Nc6 Bc4",
+    offer: "Nd4",
+    response: "Nxe5",
+    follow: "Qg5 Nxf7 Qxg2 Rf1 Qxe4+ Be2 Nf3#",
+    defense: "Nxd4",
+    safe: "exd4 O-O",
+    idea: "Si capturan en e5, ataca g2 con la dama. El mate requiere que las blancas tambi\xE9n se equivoquen despu\xE9s. \u2026Cd4 permite una respuesta fuerte en d4."
+  }
+];
+var moves = (text) => text.split(" ");
+var key = (fen) => fen.split(" ").slice(0, 4).join(" ");
+var openingTraps = entries.map((entry) => {
+  const game = new Chess();
+  for (const san of moves(entry.prefix)) game.move(san);
+  const fen = game.fen(), color = game.turn();
+  const offer = game.move(entry.offer);
+  const afterOffer = game.fen();
+  const reply = game.move(entry.response);
+  return {
+    ...entry,
+    fen,
+    color,
+    ply: game.history().length - 2,
+    key: key(fen),
+    afterKey: key(afterOffer),
+    label: moveLabel(fen, offer.san),
+    response: reply.san,
+    example: lineText(fen, [entry.offer, reply.san, ...moves(entry.follow)]),
+    precaution: lineText(afterOffer, [entry.defense, ...moves(entry.safe)]),
+    lines: [[entry.offer, reply.san, ...moves(entry.follow)], [entry.offer, entry.defense, ...moves(entry.safe)]]
+  };
+});
+function trapMatches(games, color) {
+  const candidates = openingTraps.filter((trap) => trap.color === color);
+  const positions = /* @__PURE__ */ new Map(), responses = /* @__PURE__ */ new Map();
+  for (const { doc: doc2 } of games) {
+    const game = new Chess(doc2.initialFen);
+    const reached = /* @__PURE__ */ new Set();
+    const answers = /* @__PURE__ */ new Map();
+    for (let index = 0; index <= Math.min(doc2.moves.length, 40); index++) {
+      const current = key(game.fen());
+      reached.add(current);
+      if (!doc2.moves[index]) break;
+      if (!answers.has(current)) answers.set(current, doc2.moves[index]);
+      game.move(doc2.moves[index]);
+    }
+    for (const trap of candidates) {
+      if (reached.has(trap.key)) positions.set(trap, (positions.get(trap) || 0) + 1);
+      const response = answers.get(trap.afterKey);
+      if (!response) continue;
+      const counts = responses.get(trap) || { seen: 0, matched: 0 };
+      counts.seen++;
+      if (response === trap.response) counts.matched++;
+      responses.set(trap, counts);
+    }
+  }
+  return candidates.flatMap((trap) => {
+    const reached = positions.get(trap) || 0;
+    const { seen, matched } = responses.get(trap) || { seen: 0, matched: 0 };
+    return reached || seen ? [{ trap, reached, seen, matched }] : [];
+  }).sort((a, b) => b.matched - a.matched || b.reached - a.reached);
+}
+function trapDocument(trap) {
+  return {
+    title: trap.name,
+    initialFen: DEFAULT_FEN,
+    orientation: trap.color === "w" ? "white" : "black",
+    moves: [...moves(trap.prefix), ...trap.lines[0]],
+    variations: [[...moves(trap.prefix), ...trap.lines[1]]]
+  };
+}
+function trapCard(trap, practice, summary) {
+  const section = document.createElement("section");
+  section.className = "study-group";
+  const title = document.createElement("h4");
+  title.textContent = trap.name + " \xB7 " + (trap.color === "w" ? "Blancas" : "Negras");
+  section.append(title);
+  for (const text of [
+    summary,
+    "Juega " + trap.label + ". " + trap.idea,
+    (trap.kind === "trap" ? "Si cae: " : "Si sigue esta l\xEDnea: ") + trap.example,
+    "Si evita esa l\xEDnea: " + trap.precaution
+  ]) {
+    if (!text) continue;
+    const paragraph = document.createElement("p");
+    paragraph.textContent = text;
+    section.append(paragraph);
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Practicar en el tablero";
+  button.addEventListener("click", () => practice(trapDocument(trap), trap.ply));
+  section.append(button);
+  return section;
+}
+
 // src/study-view.js
 var $ = (id) => document.getElementById(id);
-function setupStudy({ load, save, showError: showError2 }) {
+function setupStudy({ load, save, showError: showError2, openPractice: openPractice2 }) {
   const dialog = $("study-dialog"), form = $("study-form"), player = $("study-player");
   const start5 = $("study-start"), pause = $("study-pause"), status = $("study-status");
   const progress = $("study-progress"), results = $("study-results");
@@ -6047,7 +6340,7 @@ function setupStudy({ load, save, showError: showError2 }) {
       orientation: colors2[0] === "b" ? "black" : "white",
       check: chess.inCheck()
     });
-    $("study-replay-move").textContent = replayPly ? `${replayPly}/${doc2.moves.length} \xB7 ${doc2.moves[replayPly - 1]}` : "Posici\xF3n inicial";
+    $("study-replay-move").textContent = replayPly ? moveLabel(positionAt(doc2, replayPly - 1).fen(), doc2.moves[replayPly - 1]) : "Posici\xF3n inicial";
     $("study-replay-prev").disabled = replayPly === 0;
     $("study-replay-next").disabled = replayPly === doc2.moves.length;
   }
@@ -6058,6 +6351,10 @@ function setupStudy({ load, save, showError: showError2 }) {
   $("study-replay-next").addEventListener("click", () => {
     replayPly++;
     renderReplay();
+  });
+  $("explore-replay").addEventListener("click", () => {
+    const orientation = replayGame.colors[0] === "b" ? "black" : "white";
+    openPractice2({ ...replayGame.doc, orientation }, replayPly);
   });
   function openReplay(game) {
     replayGame = game;
@@ -6070,9 +6367,9 @@ function setupStudy({ load, save, showError: showError2 }) {
   let library = [], batch, profiles, skipped, job, engine2, board2, position, example2, solved, running;
   async function open({ preferredPlayer = "", games, saved, skipped: omitted = 0 } = {}) {
     if (dialog.open || running) return;
-    const entries = await load();
-    profiles = entries.filter((entry) => entry.role === "profile");
-    library = entries.filter((entry) => !entry.role).map(studyGame).filter(Boolean);
+    const entries2 = await load();
+    profiles = entries2.filter((entry) => entry.role === "profile");
+    library = entries2.filter((entry) => !entry.role).map(studyGame).filter(Boolean);
     batch = games?.map(studyGame) || saved?.records.map((record) => record.game);
     skipped = omitted;
     const users = /* @__PURE__ */ new Map();
@@ -6080,7 +6377,7 @@ function setupStudy({ load, save, showError: showError2 }) {
       for (const name of [game.white, game.black]) users.set(playerKey(name), name);
     }
     const selected = playerKey(preferredPlayer);
-    player.replaceChildren(...[...users].sort((a, b) => a[1].localeCompare(b[1], "es")).map(([key, name]) => new Option(name, key)));
+    player.replaceChildren(...[...users].sort((a, b) => a[1].localeCompare(b[1], "es")).map(([key2, name]) => new Option(name, key2)));
     if (users.has(selected)) player.value = selected;
     $("study-scope").hidden = !batch;
     onlyBatch.checked = Boolean(batch);
@@ -6269,6 +6566,19 @@ function setupStudy({ load, save, showError: showError2 }) {
       empty.textContent = "Todav\xEDa no hay una muestra de apertura para este color.";
       results.append(empty);
     }
+    const heading = document.createElement("h3");
+    heading.textContent = "Gambitos y trampas para este rival";
+    results.append(heading);
+    const matches = trapMatches(job.records.map((record) => record.game), job.color);
+    if (!matches.length) {
+      const empty = document.createElement("p");
+      empty.textContent = "Las partidas analizadas a\xFAn no muestran posiciones que coincidan con el cat\xE1logo.";
+      results.append(empty);
+    }
+    for (const { trap, reached, seen, matched } of matches) {
+      const evidence = `Posici\xF3n para jugar ${trap.label}: ${reached} de ${job.records.length} partidas. ` + (seen ? `El rival respondi\xF3 ${trap.response} en ${matched} de ${seen} partidas que llegaron al turno de respuesta.` : "La muestra no recoge una respuesta del rival despu\xE9s de esa jugada.");
+      results.append(trapCard(trap, openPractice2, evidence));
+    }
   }
   function renderExercise() {
     const orientation = example2.color === "w" ? "white" : "black";
@@ -6319,6 +6629,23 @@ function setupStudy({ load, save, showError: showError2 }) {
     solution.textContent = "";
     renderExercise();
   }
+  $("explore-exercise").addEventListener("click", () => {
+    const chess = new Chess(example2.fen);
+    const moves2 = [];
+    if (solved) {
+      moves2.push(...position.history());
+    } else if (!$("study-exercise-solution").hidden && example2.best) {
+      const { best } = example2;
+      const move3 = chess.move({ from: best.slice(0, 2), to: best.slice(2, 4), promotion: best[4] });
+      moves2.push(move3.san);
+    }
+    openPractice2({
+      title: example2.game,
+      initialFen: example2.fen,
+      orientation: example2.color === "w" ? "white" : "black",
+      moves: moves2
+    }, solved ? moves2.length : 0);
+  });
   $("study-exercise-reset").addEventListener("click", resetExercise);
   $("study-exercise-reveal").addEventListener("click", () => {
     const solution = $("study-exercise-solution");
@@ -6359,7 +6686,7 @@ function setupStudy({ load, save, showError: showError2 }) {
           game,
           (fen, depth) => worker.analyze(fen, depth),
           (ply, total) => {
-            if (ply <= 2 || ply % 12 < 2) showProgress(job.records.length, games.length, `Jugada ${ply} de ${total}.`);
+            if (ply <= 2 || ply % 12 < 2) showProgress(job.records.length, games.length, `Posici\xF3n ${ply} de ${total}.`);
           },
           () => engine2 !== worker
         );
@@ -6371,9 +6698,9 @@ function setupStudy({ load, save, showError: showError2 }) {
         showProgress(job.records.length, games.length, "Preparando aperturas\u2026");
         const seen = /* @__PURE__ */ new Set();
         const repertoire = profiles.flatMap((profile) => profile.records.map((record) => record.game)).filter((game) => {
-          const key = JSON.stringify([game.key, game.colors]);
-          if (seen.has(key)) return false;
-          seen.add(key);
+          const key2 = JSON.stringify([game.key, game.colors]);
+          if (seen.has(key2)) return false;
+          seen.add(key2);
           return true;
         });
         job.plans = await prepareOpening(
@@ -6420,6 +6747,237 @@ function setupStudy({ load, save, showError: showError2 }) {
   return open;
 }
 
+// src/variation-view.js
+function setupVariations(get, choosePromotion2, showError2) {
+  const dialog = get("variation-dialog");
+  const choices = get("variation-choices");
+  const saveButton = get("variation-save");
+  let root, node2, origin2, board2, orientation, save, trail, canSave;
+  function render5() {
+    const chess = new Chess(node2.fen);
+    const color = chess.turn() === "w" ? "white" : "black";
+    const last = node2.parent ? new Chess(node2.parent.fen).move(node2.san) : null;
+    board2.set({
+      fen: chess.fen(),
+      orientation,
+      turnColor: color,
+      check: chess.inCheck(),
+      lastMove: last ? [last.from, last.to] : void 0,
+      movable: { color, free: false, dests: legalDests(chess) }
+    });
+    get("variation-line").textContent = lineText(root.fen, nodeMoves(node2)) || "Posici\xF3n inicial";
+    get("variation-comment").textContent = node2.comment;
+    get("variation-prev").disabled = !node2.parent;
+    get("variation-next").disabled = !node2.children.length;
+    get("variation-reset").disabled = node2 === origin2;
+    saveButton.hidden = !save || !canSave(nodeMoves(node2));
+    choices.replaceChildren(...node2.children.map((child) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = child.san;
+      button.addEventListener("click", () => visit(child));
+      return button;
+    }));
+  }
+  function visit(next) {
+    if (next.parent === node2) trail.set(node2, next);
+    node2 = next;
+    render5();
+  }
+  async function play(from, to) {
+    const candidates = new Chess(node2.fen).moves({ verbose: true }).filter((move3) => move3.from === from && move3.to === to);
+    if (candidates.length > 1) {
+      render5();
+      const promotion = await choosePromotion2();
+      if (promotion) visit(addMove2(node2, { from, to, promotion }));
+    } else if (candidates.length) visit(addMove2(node2, candidates[0].san));
+    else render5();
+  }
+  const tryMove = (from, to) => play(from, to).catch((error) => {
+    render5();
+    showError2(error);
+  });
+  get("variation-prev").addEventListener("click", () => visit(node2.parent));
+  get("variation-next").addEventListener("click", () => visit(trail.get(node2) || node2.children[0]));
+  get("variation-reset").addEventListener("click", () => visit(origin2));
+  saveButton.addEventListener("click", async () => {
+    saveButton.disabled = true;
+    try {
+      await save(nodeMoves(node2));
+      render5();
+    } catch (error) {
+      showError2(error);
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+  return function open(doc2, cursor = doc2.cursor, options = {}) {
+    root = moveTree(doc2);
+    const main = doc2.moves.slice(0, cursor);
+    origin2 = main.reduce((parent, san) => parent.children.find((child) => child.san === san), root);
+    node2 = origin2;
+    orientation = doc2.orientation || "white";
+    save = options.save;
+    canSave = options.canSave || (() => false);
+    trail = /* @__PURE__ */ new Map();
+    get("variation-title").textContent = doc2.title || "Explorar variante";
+    dialog.showModal();
+    board2 ||= Chessground(get("variation-board"), {
+      coordinates: true,
+      drawable: { enabled: false },
+      premovable: { enabled: false },
+      movable: { events: { after: tryMove } }
+    });
+    render5();
+    if (options.move) tryMove(...options.move);
+  };
+}
+
+// src/lichess-studies.js
+var origin = "https://lichess.org";
+function studyPath(link) {
+  const url = new URL(link);
+  const match = url.pathname.match(/^\/study\/([a-zA-Z0-9]{8})(?:\/([a-zA-Z0-9]{8}))?\/?$/);
+  if (url.origin !== origin || !match) throw Error("Pega un enlace p\xFAblico de Lichess con el formato lichess.org/study/\u2026");
+  return match.slice(1);
+}
+function studyChapter(doc2) {
+  const source = pgnHeader(doc2.sourcePgn || "", "ChapterURL");
+  return /^lichess:[a-zA-Z0-9]{8}:[a-zA-Z0-9]{8}$/.test(doc2.id) && /^https:\/\/lichess\.org\/study\/[a-zA-Z0-9]{8}\/[a-zA-Z0-9]{8}$/.test(source) ? source : "";
+}
+function parseChapters(pgn2, studyId) {
+  const chapters = [];
+  let omitted = 0;
+  for (const text of pgn2.trim().split(/\r?\n(?:[ \t]*\r?\n)+(?=\[Event\s)/)) {
+    try {
+      const [study, chapter] = studyPath(pgnHeader(text, "ChapterURL"));
+      const variant = pgnHeader(text, "Variant").toLowerCase();
+      if (study !== studyId || !chapter || variant && !["standard", "chess", "from position"].includes(variant)) {
+        throw Error("Cap\xEDtulo no compatible.");
+      }
+      if (text.length > 2e6) throw Error("Cap\xEDtulo demasiado grande.");
+      const doc2 = newDocument();
+      doc2.id = "lichess:" + study + ":" + chapter;
+      doc2.initialFen = pgnHeader(text, "FEN") || doc2.initialFen;
+      doc2.moves = pgnMainLine(doc2.initialFen, text);
+      doc2.sourcePgn = text;
+      doc2.title = (pgnHeader(text, "ChapterName") || pgnHeader(text, "Event") || doc2.title).slice(0, 200);
+      doc2.orientation = pgnHeader(text, "Orientation") === "black" ? "black" : "white";
+      chapters.push(validateDocument(doc2));
+    } catch {
+      omitted++;
+    }
+  }
+  if (!chapters.length) throw Error("Este estudio no contiene cap\xEDtulos p\xFAblicos de ajedrez est\xE1ndar que Piol\xEDn pueda abrir.");
+  return { chapters, omitted };
+}
+function credit(doc2, name) {
+  return pgnHeader(doc2.sourcePgn, name);
+}
+function setupLichessStudies(get, store2, updateLibrary2) {
+  const dialog = get("lichess-studies"), form = get("lichess-study-form");
+  const status = get("lichess-study-status"), box = get("lichess-study-chapters");
+  const save = get("lichess-study-save"), fetchButton = get("lichess-study-fetch");
+  let chapters = [];
+  get("lichess-studies-open").addEventListener("click", () => dialog.showModal());
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (fetchButton.disabled || save.disabled) return;
+    fetchButton.disabled = true;
+    chapters = [];
+    box.replaceChildren();
+    save.hidden = true;
+    status.textContent = "Buscando cap\xEDtulos\u2026";
+    try {
+      const [studyId, chapterId] = studyPath(get("lichess-study-url").value.trim());
+      const path = studyId + (chapterId ? "/" + chapterId : "");
+      const response = await fetch(origin + "/api/study/" + path + ".pgn?clocks=false&comments=true&variations=true&orientation=true", {
+        signal: AbortSignal.timeout(25e3),
+        credentials: "omit"
+      });
+      if (!response.ok) throw Error(response.status === 429 ? "Lichess pide esperar antes de volver a buscar." : "Lichess no ha devuelto el estudio. Comprueba que el enlace sea p\xFAblico.");
+      const result = parseChapters(await response.text(), studyId);
+      chapters = result.chapters;
+      const existing = new Set((await store2.all()).map((doc2) => doc2.id));
+      const title = credit(chapters[0], "StudyName") || chapters[0].title;
+      status.textContent = title + " \xB7 " + chapters.length + " cap\xEDtulos disponibles." + (result.omitted ? " " + result.omitted + " cap\xEDtulos omitidos por incompatibilidad." : "");
+      for (const chapter of chapters) {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.value = chapter.id;
+        input.disabled = existing.has(chapter.id);
+        input.checked = !input.disabled;
+        const annotator = credit(chapter, "Annotator").replace(/^https:\/\/lichess\.org\/@\//, "");
+        label.append(input, " " + chapter.title + (annotator ? " \xB7 Anotaciones de " + annotator : "") + (input.disabled ? " \xB7 Ya guardado" : ""));
+        box.append(label);
+      }
+      save.hidden = !box.querySelector("input:enabled");
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      fetchButton.disabled = false;
+    }
+  });
+  save.addEventListener("click", async () => {
+    const selected = new Set([...box.querySelectorAll("input:checked:enabled")].map((input) => input.value));
+    if (!selected.size) {
+      status.textContent = "Selecciona al menos un cap\xEDtulo.";
+      return;
+    }
+    save.disabled = true;
+    try {
+      const added = await store2.importChapters(chapters.filter((doc2) => selected.has(doc2.id)));
+      await updateLibrary2();
+      status.textContent = added ? added + " cap\xEDtulos guardados en la biblioteca." : "Esos cap\xEDtulos ya estaban guardados.";
+      for (const input of box.querySelectorAll("input:checked:enabled")) {
+        input.checked = false;
+        input.disabled = true;
+        input.parentElement.append(" \xB7 Ya guardado");
+      }
+      save.hidden = !box.querySelector("input:enabled");
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      save.disabled = false;
+    }
+  });
+}
+
+// src/update-app.js
+async function updateApp(registration2, initialWorker2, save, report) {
+  const serviceWorker = navigator.serviceWorker;
+  if (!registration2) throw Error("Abre Piol\xEDn Chess desde su enlace web para buscar actualizaciones.");
+  await save();
+  report("Buscando actualizaciones\u2026");
+  const current = serviceWorker.controller;
+  await registration2.update();
+  const worker = registration2.installing || registration2.waiting;
+  if (worker && ["installing", "installed", "activating"].includes(worker.state)) {
+    await new Promise((resolve, reject) => {
+      const timer2 = setTimeout(() => finish(Error("La descarga sigue en curso. Vuelve a pulsar Actualizar en un momento.")), 6e4);
+      function finish(error) {
+        clearTimeout(timer2);
+        worker.removeEventListener("statechange", check);
+        if (error) reject(error);
+        else resolve();
+      }
+      function check() {
+        if (worker.state === "activated") finish();
+        if (worker.state === "redundant") finish(Error("No se pudo instalar la actualizaci\xF3n. Int\xE9ntalo de nuevo."));
+      }
+      worker.addEventListener("statechange", check);
+      check();
+    });
+  }
+  if (current !== serviceWorker.controller || serviceWorker.controller !== initialWorker2) {
+    await save();
+    location.reload();
+    return;
+  }
+  report("Ya tienes la \xFAltima versi\xF3n.");
+}
+
 // src/storage.js
 var LocalStore = class {
   async open() {
@@ -6462,6 +7020,21 @@ var LocalStore = class {
     return this.tx("readwrite", (store2) => {
       for (const doc2 of docs) store2.put(doc2);
     });
+  }
+  async importChapters(chapters) {
+    let added = 0;
+    await this.tx("readwrite", (store2) => {
+      for (const chapter of chapters) {
+        const existing = store2.get(chapter.id);
+        existing.onsuccess = () => {
+          if (!existing.result) {
+            store2.put(chapter);
+            added++;
+          }
+        };
+      }
+    });
+    return added;
   }
   saveStudy(study, gameKey) {
     return this.tx("readwrite", (store2) => {
@@ -6563,6 +7136,8 @@ var escape = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "
 var example = '[Event "Miniatura de ejemplo"]\n[White "Blancas"]\n[Black "Negras"]\n[Result "1-0"]\n\n1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0';
 var bot = { active: false, color: "b", skill: 10, thinking: false, serial: 0, clock: null, times: { w: 0, b: 0 }, timed: false };
 var toastTimer;
+var registration;
+var initialWorker = navigator.serviceWorker?.controller;
 function toast(text) {
   $2("toast").textContent = text;
   $2("toast").hidden = false;
@@ -6621,7 +7196,7 @@ async function ensureFullEngine() {
 async function registerWorker() {
   if (!("serviceWorker" in navigator) || location.protocol === "file:") return false;
   try {
-    await navigator.serviceWorker.register("sw.js");
+    registration = await navigator.serviceWorker.register("sw.js", { updateViaCache: "none" });
     await navigator.serviceWorker.ready;
     if (!self.crossOriginIsolated && !sessionStorage.getItem("piolin-isolation-reload")) {
       sessionStorage.setItem("piolin-isolation-reload", "1");
@@ -6708,7 +7283,8 @@ function render4() {
   $2("turn-status").textContent = chess.isCheckmate() ? "Jaque mate" : chess.isStalemate() ? "Ahogado" : chess.isDraw() ? "Tablas" : `Juegan ${chess.turn() === "w" ? "blancas" : "negras"}${chess.inCheck() ? " \xB7 jaque" : ""}`;
   $2("first").disabled = $2("prev").disabled = doc.cursor === 0;
   $2("next").disabled = $2("last").disabled = doc.cursor === doc.moves.length;
-  $2("ply-label").textContent = doc.cursor === 0 ? "Inicio" : `${doc.cursor} / ${doc.moves.length}`;
+  $2("ply-label").textContent = last ? moveLabel(last.before, last.san) : "Inicio";
+  $2("explore-game").textContent = pgnHeader(doc.sourcePgn || "", "ChapterURL") ? "Comentarios y variantes" : "Explorar variante";
   renderMoves();
   resetEvaluation();
   const cached = doc.analyses?.[chess.fen()];
@@ -6728,7 +7304,7 @@ function renderMoves() {
   doc.moves.forEach((san, i) => {
     const absolute = start5 + i, num = Math.floor(absolute / 2) + 1;
     if (!rows.has(num)) rows.set(num, ["", ""]);
-    rows.get(num)[absolute % 2] = `<button class="move-button${doc.cursor === i + 1 ? " selected" : ""}" data-ply="${i + 1}" aria-label="Ir a ${escape(san)}">${escape(san)}</button>`;
+    rows.get(num)[absolute % 2] = `<button class="move-button${doc.cursor === i + 1 ? " selected" : ""}" data-ply="${i + 1}" aria-label="Ir a ${num}${absolute % 2 ? "..." : "."} ${escape(san)}">${escape(san)}</button>`;
   });
   $2("moves").innerHTML = [...rows].map(([n, ms]) => `<div class="move-row"><span class="move-num">${n}.</span>${ms[0] || "<span></span>"}${ms[1] || "<span></span>"}</div>`).join("");
   const list = $2("moves"), sel = list.querySelector(".selected");
@@ -6773,18 +7349,19 @@ async function onMove(from, to) {
       render4();
       return;
     }
+    if (doc.cursor < doc.moves.length) {
+      const next = candidates.find((move4) => move4.san === doc.moves[doc.cursor]);
+      if (next && candidates.length === 1) jump(doc.cursor + 1);
+      else exploreGame([from, to]);
+      return;
+    }
     let promotion;
     if (candidates.some((m) => m.promotion)) {
       render4();
       promotion = await choosePromotion();
       if (!promotion) return;
     }
-    if (doc.cursor < doc.moves.length && !confirm("Jugar aqu\xED sustituir\xE1 la continuaci\xF3n de la sesi\xF3n actual. Las partidas guardadas en biblioteca se conservan. \xBFContinuar?")) {
-      render4();
-      return;
-    }
     const move3 = chess.move({ from, to, promotion });
-    doc.moves = doc.moves.slice(0, doc.cursor);
     doc.moves.push(move3.san);
     doc.cursor = doc.moves.length;
     render4();
@@ -6863,25 +7440,98 @@ async function pump() {
     if (enabled && pending) setTimeout(() => pump().catch(showError), 0);
   }
 }
+var openVariation = setupVariations($2, choosePromotion, showError);
+function exploreGame(move3) {
+  const current = doc;
+  const sameLine = (a, b) => a.every((san, index) => san === b[index]);
+  const canSave = (line) => line.length && !sameLine(line, current.moves) && !current.variations?.some((saved) => sameLine(line, saved)) && (current.variations?.length || 0) < 100;
+  render4();
+  openVariation(current, current.cursor, {
+    move: move3,
+    canSave: (line) => storeReady && canSave(line),
+    save: async (line) => {
+      const entry = { ...structuredClone(current), variations: [...current.variations || [], line] };
+      if (current.libraryId) {
+        const saved = await store.get(current.libraryId);
+        if (saved) await store.put({ ...saved, variations: entry.variations, updatedAt: (/* @__PURE__ */ new Date()).toISOString() });
+      }
+      current.variations = entry.variations;
+      await flushSave();
+      toast(current.libraryId ? "Variante guardada en la biblioteca." : "Variante guardada en esta sesi\xF3n.");
+    }
+  });
+}
+function openPractice(doc2, cursor) {
+  let saved = false;
+  openVariation(doc2, cursor, {
+    canSave: (line) => storeReady && !saved && line.length > cursor,
+    save: async (line) => {
+      const entry = {
+        ...newDocument(),
+        id: crypto.randomUUID(),
+        title: doc2.title,
+        initialFen: doc2.initialFen,
+        orientation: doc2.orientation,
+        moves: line,
+        cursor: line.length
+      };
+      await store.put(validateDocument(entry));
+      saved = true;
+      await updateLibrary();
+      toast("Variante guardada en la biblioteca.");
+    }
+  });
+}
 async function updateLibrary() {
   if (!storeReady) return;
-  const entries = await store.all();
-  const games = entries.filter((g) => g.id !== "draft" && !g.role).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  const entries2 = await store.all();
+  const games = entries2.filter((g) => g.id !== "draft" && !g.role).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   $2("library-count").textContent = String(games.length);
   $2("lib-modal-count").textContent = String(games.length);
-  $2("library-studies").innerHTML = entries.filter((entry) => entry.role).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map((study) => `<div class="library-item"><div class="library-description"><strong>${escape(study.name)}</strong><small>${study.role === "profile" ? "Mi perfil" : "Rival"} \xB7 ${study.records.length} partidas analizadas</small></div><button data-study="${escape(study.id)}">Abrir estudio</button><button class="delete-button" data-remove-study="${escape(study.id)}" aria-label="Eliminar estudio">\xD7</button></div>`).join("");
-  $2("library-list").innerHTML = games.length ? games.map((g) => `<div class="library-item"><div class="library-description"><strong>${escape(g.title)}</strong><small>${g.moves.length} medias jugadas \xB7 ${escape(new Date(g.updatedAt).toLocaleDateString("es-ES"))}</small></div><button data-open="${escape(g.id)}">Abrir</button><button class="delete-button" data-delete="${escape(g.id)}" aria-label="Eliminar ${escape(g.title)}">\xD7</button></div>`).join("") : "<p>Todav\xEDa no hay partidas. Usa \xABGuardar en biblioteca\xBB para a\xF1adir la primera.</p>";
+  $2("library-studies").innerHTML = entries2.filter((entry) => entry.role).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map((study) => `<div class="library-item"><div class="library-description"><strong>${escape(study.name)}</strong><small>${study.role === "profile" ? "Mi perfil" : "Rival"} \xB7 ${study.records.length} partidas analizadas</small></div><button data-study="${escape(study.id)}">Abrir estudio</button><button class="delete-button" data-remove-study="${escape(study.id)}" aria-label="Eliminar estudio">\xD7</button></div>`).join("");
+  const chapters = games.filter(studyChapter);
+  const regular = games.filter((game) => !studyChapter(game));
+  $2("library-lichess").innerHTML = chapters.length ? "<h3>Estudios de Lichess</h3>" + chapters.map((game) => {
+    const title = pgnHeader(game.sourcePgn, "StudyName");
+    return `<div class="library-item"><div class="library-description"><strong>${escape(game.title)}</strong><small>${escape(title)} \xB7 <a href="${studyChapter(game)}" target="_blank" rel="noopener noreferrer">Original en Lichess</a></small></div><button data-open="${game.id}">Abrir cap\xEDtulo</button><button class="delete-button" data-delete="${game.id}" aria-label="Eliminar cap\xEDtulo">\xD7</button></div>`;
+  }).join("") : "";
+  $2("library-list").innerHTML = regular.length ? regular.map((g) => `<div class="library-item"><div class="library-description"><strong>${escape(g.title)}</strong><small>${g.moves.length} medias jugadas \xB7 ${escape(new Date(g.updatedAt).toLocaleDateString("es-ES"))}</small></div><button data-open="${escape(g.id)}">Abrir</button><button class="delete-button" data-delete="${escape(g.id)}" aria-label="Eliminar ${escape(g.title)}">\xD7</button></div>`).join("") : "<p>Todav\xEDa no hay partidas. Usa \xABGuardar en biblioteca\xBB para a\xF1adir la primera.</p>";
 }
 async function makeBackup() {
   if (!storeReady) throw Error("El almacenamiento no est\xE1 disponible. Exporta al menos el PGN actual.");
   await flushSave();
-  const entries = (await store.all()).filter((g) => g.id !== "draft");
-  const games = entries.filter((g) => !g.role), studies = entries.filter((g) => g.role);
+  const entries2 = (await store.all()).filter((g) => g.id !== "draft");
+  const games = entries2.filter((g) => !g.role), studies = entries2.filter((g) => g.role);
   return JSON.stringify({ application: "piolin_chess", schema: 1, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), draft: structuredClone(doc), games, studies }, null, 2);
 }
 function action(id, fn) {
   $2(id).addEventListener("click", () => Promise.resolve().then(fn).catch(showError));
 }
+action("explore-game", () => exploreGame());
+action("update-app", async () => {
+  const button = $2("update-app");
+  const report = (message) => {
+    $2("update-status").textContent = message;
+  };
+  button.disabled = true;
+  try {
+    await updateApp(registration, initialWorker, flushSave, report);
+  } catch (error) {
+    report(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+setupLichessStudies($2, store, updateLibrary);
+function renderTrapCatalog() {
+  const side = $2("trap-color").value;
+  $2("trap-catalog").replaceChildren(...openingTraps.filter((trap) => !side || trap.color === side).map((trap) => trapCard(trap, openPractice)));
+}
+action("traps-open", () => {
+  renderTrapCatalog();
+  $2("traps-dialog").showModal();
+});
+$2("trap-color").addEventListener("change", renderTrapCatalog);
 action("flip", () => {
   doc.orientation = doc.orientation === "white" ? "black" : "white";
   render4();
@@ -6936,10 +7586,10 @@ $2("pgn-file").addEventListener("change", async (e) => {
 });
 function markStudyPlayer(game, name) {
   if (!name || !game.sourcePgn) return;
-  const key = playerKey(name);
+  const key2 = playerKey(name);
   const white = pgnHeader(game.sourcePgn, "White"), black = pgnHeader(game.sourcePgn, "Black");
-  if (playerKey(white) === key) game.studyPlayer = white;
-  else if (playerKey(black) === key) {
+  if (playerKey(white) === key2) game.studyPlayer = white;
+  else if (playerKey(black) === key2) {
     game.studyPlayer = black;
     game.orientation = "black";
   }
@@ -7002,7 +7652,7 @@ action("import-batch", async () => {
   }
 });
 var openStudy = setupStudy({
-  load: () => storeReady ? store.all().then((entries) => entries.filter((entry) => entry.id !== "draft")) : [],
+  load: () => storeReady ? store.all().then((entries2) => entries2.filter((entry) => entry.id !== "draft")) : [],
   save: async (study) => {
     if (!storeReady) throw Error("La biblioteca no est\xE1 disponible en este navegador.");
     await store.saveStudy(study, (doc2) => studyGame(doc2)?.key);
@@ -7010,7 +7660,8 @@ var openStudy = setupStudy({
     navigator.storage?.persist?.().catch(() => {
     });
   },
-  showError
+  showError,
+  openPractice
 });
 $2("library-studies").addEventListener("click", (event) => {
   const id = event.target.closest("[data-study]")?.dataset.study;
@@ -7039,16 +7690,18 @@ action("save-library", async () => {
   });
   toast("Partida guardada en tu biblioteca.");
 });
-$2("library-list").addEventListener("click", (e) => {
+$2("library-dialog").addEventListener("click", (e) => {
   (async () => {
     const id = e.target.closest("[data-open]")?.dataset.open, del = e.target.closest("[data-delete]")?.dataset.delete;
     if (id) {
       if ((doc.moves.length || doc.notes) && !confirm("\xBFAbrir esta partida y sustituir la sesi\xF3n actual?")) return;
       const game = validateDocument(await store.get(id));
+      endBot();
       doc = { ...game, id: "draft", libraryId: game.id };
       render4();
       await flushSave();
       $2("library-dialog").close();
+      if (studyChapter(game)) exploreGame();
     }
     if (del && confirm("\xBFEliminar esta partida de la biblioteca?")) {
       await store.remove(del);
@@ -7197,7 +7850,7 @@ async function auditGame() {
     toast("Carga o juega primero una partida para revisar sus fallos.");
     return;
   }
-  const serial = ++auditSerial, moves = [...doc.moves], depth = Math.min(doc.depth || 14, 12);
+  const serial = ++auditSerial, moves2 = [...doc.moves], depth = Math.min(doc.depth || 14, 12);
   $2("mistakes-panel").hidden = false;
   $2("mistakes-list").innerHTML = "";
   mistakes = [];
@@ -7206,20 +7859,20 @@ async function auditGame() {
   try {
     await runExclusive(async () => {
       const evals = [];
-      for (let i = 0; i <= moves.length; i++) {
+      for (let i = 0; i <= moves2.length; i++) {
         if (serial !== auditSerial) return;
-        $2("mistakes-summary").textContent = `Revisando posici\xF3n ${i + 1} de ${moves.length + 1}\u2026`;
-        const fen = validateEngineFen(positionAt({ initialFen: doc.initialFen, moves }, i).fen()), r = await engine.analyze(fen, depth);
+        $2("mistakes-summary").textContent = `Revisando posici\xF3n ${i + 1} de ${moves2.length + 1}\u2026`;
+        const fen = validateEngineFen(positionAt({ initialFen: doc.initialFen, moves: moves2 }, i).fen()), r = await engine.analyze(fen, depth);
         if (serial !== auditSerial) return;
         evals.push(r.evaluation ? clampCp(r.evaluation) * (fen.split(" ")[1] === "w" ? 1 : -1) : 0);
       }
       const fields = doc.initialFen.split(" "), start5 = (Number(fields[5]) - 1) * 2 + (fields[1] === "b" ? 1 : 0);
-      for (let i = 1; i <= moves.length; i++) {
+      for (let i = 1; i <= moves2.length; i++) {
         const white = (start5 + i - 1) % 2 === 0, loss = (evals[i - 1] - evals[i]) * (white ? 1 : -1);
         if (loss < 75) continue;
         const type = loss >= 300 ? { tag: "?? Grave", cls: "badge-blunder" } : loss >= 150 ? { tag: "? Error", cls: "badge-mistake" } : { tag: "?! Imprecisi\xF3n", cls: "badge-inaccuracy" };
         const num = Math.floor((start5 + i - 1) / 2) + 1;
-        mistakes.push({ ply: i, label: `${num}${white ? "." : "..."} ${moves[i - 1]}`, loss: (loss / 100).toFixed(2), ...type });
+        mistakes.push({ ply: i, label: `${num}${white ? "." : "..."} ${moves2[i - 1]}`, loss: (loss / 100).toFixed(2), ...type });
       }
       $2("mistakes-summary").textContent = `Fallos encontrados: ${mistakes.length}`;
       $2("mistakes-list").innerHTML = mistakes.length ? mistakes.map((m) => `<div class="mistake-item" data-mistake-ply="${m.ply}"><span><strong>${escape(m.label)}</strong> (pierde ${m.loss} peones)</span><span class="${m.cls}">${m.tag}</span></div>`).join("") : '<p style="font-size:12px;margin:4px 0;">Partida muy precisa: no se detectaron p\xE9rdidas relevantes.</p>';

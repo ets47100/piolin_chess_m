@@ -3,11 +3,13 @@ import { Chess } from 'chess.js';
 import { Chessground } from '@lichess-org/chessground';
 import { LocalEngine } from './engine.js';
 import { legalDests, positionAt, pvToSan } from './model.js';
+import { moveLabel } from './variations.js';
+import { trapCard, trapMatches } from './opening-traps.js';
 import { analyzeStudyGame, lessons, playerKey, prepareOpening, rhythms, selectGames, studyGame, summarize } from './player-study.js';
 
 const $ = id => document.getElementById(id);
 
-export function setupStudy({ load, save, showError }) {
+export function setupStudy({ load, save, showError, openPractice }) {
   const dialog = $('study-dialog'), form = $('study-form'), player = $('study-player');
   const start = $('study-start'), pause = $('study-pause'), status = $('study-status');
   const progress = $('study-progress'), results = $('study-results');
@@ -24,13 +26,17 @@ export function setupStudy({ load, save, showError }) {
       fen: chess.fen(), orientation: colors[0] === 'b' ? 'black' : 'white', check: chess.inCheck(),
     });
     $('study-replay-move').textContent = replayPly
-      ? `${replayPly}/${doc.moves.length} · ${doc.moves[replayPly - 1]}`
+      ? moveLabel(positionAt(doc, replayPly - 1).fen(), doc.moves[replayPly - 1])
       : 'Posición inicial';
     $('study-replay-prev').disabled = replayPly === 0;
     $('study-replay-next').disabled = replayPly === doc.moves.length;
   }
   $('study-replay-prev').addEventListener('click', () => { replayPly--; renderReplay(); });
   $('study-replay-next').addEventListener('click', () => { replayPly++; renderReplay(); });
+  $('explore-replay').addEventListener('click', () => {
+    const orientation = replayGame.colors[0] === 'b' ? 'black' : 'white';
+    openPractice({ ...replayGame.doc, orientation }, replayPly);
+  });
   function openReplay(game) {
     replayGame = game;
     replayPly = 0;
@@ -240,6 +246,21 @@ export function setupStudy({ load, save, showError }) {
       empty.textContent = 'Todavía no hay una muestra de apertura para este color.';
       results.append(empty);
     }
+    const heading = document.createElement('h3');
+    heading.textContent = 'Gambitos y trampas para este rival';
+    results.append(heading);
+    const matches = trapMatches(job.records.map(record => record.game), job.color);
+    if (!matches.length) {
+      const empty = document.createElement('p');
+      empty.textContent = 'Las partidas analizadas aún no muestran posiciones que coincidan con el catálogo.';
+      results.append(empty);
+    }
+    for (const { trap, reached, seen, matched } of matches) {
+      const evidence = `Posición para jugar ${trap.label}: ${reached} de ${job.records.length} partidas. ` +
+        (seen ? `El rival respondió ${trap.response} en ${matched} de ${seen} partidas que llegaron al turno de respuesta.`
+          : 'La muestra no recoge una respuesta del rival después de esa jugada.');
+      results.append(trapCard(trap, openPractice, evidence));
+    }
   }
 
   function renderExercise() {
@@ -293,6 +314,19 @@ export function setupStudy({ load, save, showError }) {
     renderExercise();
   }
 
+  $('explore-exercise').addEventListener('click', () => {
+    const chess = new Chess(example.fen);
+    const moves = [];
+    if (solved) {
+      moves.push(...position.history());
+    } else if (!$('study-exercise-solution').hidden && example.best) {
+      const { best } = example;
+      const move = chess.move({ from: best.slice(0, 2), to: best.slice(2, 4), promotion: best[4] });
+      moves.push(move.san);
+    }
+    openPractice({ title: example.game, initialFen: example.fen,
+      orientation: example.color === 'w' ? 'white' : 'black', moves }, solved ? moves.length : 0);
+  });
   $('study-exercise-reset').addEventListener('click', resetExercise);
   $('study-exercise-reveal').addEventListener('click', () => {
     const solution = $('study-exercise-solution');
@@ -325,7 +359,7 @@ export function setupStudy({ load, save, showError }) {
         if (engine !== worker) break;
         const findings = await analyzeStudyGame(game, (fen, depth) => worker.analyze(fen, depth),
           (ply, total) => {
-            if (ply <= 2 || ply % 12 < 2) showProgress(job.records.length, games.length, `Jugada ${ply} de ${total}.`);
+            if (ply <= 2 || ply % 12 < 2) showProgress(job.records.length, games.length, `Posición ${ply} de ${total}.`);
           }, () => engine !== worker);
         if (!findings || engine !== worker) break;
         job.records.push({ game, findings });

@@ -31,3 +31,10 @@
 .player-strip>div{min-width:0}
 .player-strip strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #study-scope{font-size:13px}
+
+#variation-board{width:min(100%,440px);aspect-ratio:1;margin:0 auto}
+#variation-line,#variation-comment{white-space:pre-wrap;overflow-wrap:anywhere}
+#lichess-study-chapters{display:grid;gap:.45rem;margin:.75rem 0}
+#lichess-study-form .text-field{width:min(100%,28rem)}
+#lichess-studies a,.library-description a{color:var(--green)}
+.board-actions{flex-wrap:wrap}
