@@ -4,6 +4,11 @@ import { Chess } from 'chess.js';
 import { newDocument,validateDocument,positionAt,importText,exportPgn,parseBackup,legalDests,pvToSan,validateEngineFen,pgnHeader,APP_VERSION } from './model.js';
 import { playerKey, studyGame } from './player-study.js';
 import { setupStudy } from './study-view.js';
+import { moveLabel } from './variations.js';
+import { setupVariations } from './variation-view.js';
+import { setupLichessStudies, studyChapter } from './lichess-studies.js';
+import { openingTraps, trapCard } from './opening-traps.js';
+import { updateApp } from './update-app.js';
 import { LocalStore } from './storage.js';
 import { LocalEngine } from './engine.js';
 import { FULL_JS,canUseFullEngine,fullEngineInstalled,downloadFullEngine,fullEngineOptions } from './engine-store.js';
@@ -14,7 +19,8 @@ let enabled=false,pumping=false,pending=null,analysisSerial=0,scheduleTimer,last
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const example='[Event "Miniatura de ejemplo"]\n[White "Blancas"]\n[Black "Negras"]\n[Result "1-0"]\n\n1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. Qxf7# 1-0';
 const bot={active:false,color:'b',skill:10,thinking:false,serial:0,clock:null,times:{w:0,b:0},timed:false};
-let toastTimer;
+let toastTimer, registration;
+const initialWorker = navigator.serviceWorker?.controller;
 function toast(text){$('toast').textContent=text;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,4500);}
 function engineStatus(text){
   $('engine-status').textContent=text;
@@ -51,7 +57,8 @@ async function ensureFullEngine(){
 async function registerWorker(){
   if(!('serviceWorker' in navigator)||location.protocol==='file:')return false;
   try{
-    await navigator.serviceWorker.register('sw.js');await navigator.serviceWorker.ready;
+    registration = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+    await navigator.serviceWorker.ready;
     if(!self.crossOriginIsolated&&!sessionStorage.getItem('piolin-isolation-reload')){sessionStorage.setItem('piolin-isolation-reload','1');location.reload();return true;}
   }catch(e){console.warn('Service worker no disponible',e);}
   return false;
@@ -101,7 +108,9 @@ function render(){
   const flipped=doc.orientation==='black';renderPlayer('top',flipped);renderPlayer('bottom',!flipped);
   $('turn-status').textContent=chess.isCheckmate()?'Jaque mate':chess.isStalemate()?'Ahogado':chess.isDraw()?'Tablas':`Juegan ${chess.turn()==='w'?'blancas':'negras'}${chess.inCheck()?' · jaque':''}`;
   $('first').disabled=$('prev').disabled=doc.cursor===0;$('next').disabled=$('last').disabled=doc.cursor===doc.moves.length;
-  $('ply-label').textContent=doc.cursor===0?'Inicio':`${doc.cursor} / ${doc.moves.length}`;
+  $('ply-label').textContent = last ? moveLabel(last.before, last.san) : 'Inicio';
+  $('explore-game').textContent = pgnHeader(doc.sourcePgn || '', 'ChapterURL')
+    ? 'Comentarios y variantes' : 'Explorar variante';
   renderMoves();resetEvaluation();
   const cached=doc.analyses?.[chess.fen()];if(cached){lastResult=cached;showEvaluation(cached.fen,cached.evaluation,cached.bestMove);$('depth-reached').textContent+=' · guardado';}
   scheduleAnalysis();
@@ -111,7 +120,7 @@ function renderMoves(){
   const fields=doc.initialFen.split(' '),start=(Number(fields[5])-1)*2+(fields[1]==='b'?1:0),rows=new Map();
   doc.moves.forEach((san,i)=>{
     const absolute=start+i,num=Math.floor(absolute/2)+1;if(!rows.has(num))rows.set(num,['','']);
-    rows.get(num)[absolute%2]=`<button class="move-button${doc.cursor===i+1?' selected':''}" data-ply="${i+1}" aria-label="Ir a ${escape(san)}">${escape(san)}</button>`;
+    rows.get(num)[absolute%2]=`<button class="move-button${doc.cursor===i+1?' selected':''}" data-ply="${i+1}" aria-label="Ir a ${num}${absolute%2?'...':'.'} ${escape(san)}">${escape(san)}</button>`;
   });
   $('moves').innerHTML=[...rows].map(([n,ms])=>`<div class="move-row"><span class="move-num">${n}.</span>${ms[0]||'<span></span>'}${ms[1]||'<span></span>'}</div>`).join('');
   const list=$('moves'),sel=list.querySelector('.selected');
@@ -138,10 +147,15 @@ async function onMove(from,to){
   try{
     const chess=positionAt(doc),candidates=chess.moves({verbose:true}).filter(m=>m.from===from&&m.to===to);
     if(!candidates.length){render();return;}
+    if (doc.cursor < doc.moves.length) {
+      const next = candidates.find(move => move.san === doc.moves[doc.cursor]);
+      if (next && candidates.length === 1) jump(doc.cursor + 1);
+      else exploreGame([from, to]);
+      return;
+    }
     let promotion;
     if(candidates.some(m=>m.promotion)){render();promotion=await choosePromotion();if(!promotion)return;}
-    if(doc.cursor<doc.moves.length&&!confirm('Jugar aquí sustituirá la continuación de la sesión actual. Las partidas guardadas en biblioteca se conservan. ¿Continuar?')){render();return;}
-    const move=chess.move({from,to,promotion});doc.moves=doc.moves.slice(0,doc.cursor);doc.moves.push(move.san);doc.cursor=doc.moves.length;
+    const move=chess.move({from,to,promotion});doc.moves.push(move.san);doc.cursor=doc.moves.length;
     render();markDirty();botMove().catch(showError);
   }catch(e){render();showError(e);}
 }
@@ -190,6 +204,42 @@ async function pump(){
     if(e.name!=='AbortError'){enabled=false;pending=null;engineStatus(e.message);showError(e);}
   }finally{pumping=false;toggleButton();if(enabled&&pending)setTimeout(()=>pump().catch(showError),0);}
 }
+const openVariation = setupVariations($, choosePromotion, showError);
+function exploreGame(move) {
+  const current = doc;
+  const sameLine = (a, b) => a.every((san, index) => san === b[index]);
+  const canSave = line => line.length && !sameLine(line, current.moves) &&
+    !current.variations?.some(saved => sameLine(line, saved)) && (current.variations?.length || 0) < 100;
+  render();
+  openVariation(current, current.cursor, {
+    move, canSave: line => storeReady && canSave(line),
+    save: async line => {
+      const entry = { ...structuredClone(current), variations: [...(current.variations || []), line] };
+      if (current.libraryId) {
+        const saved = await store.get(current.libraryId);
+        if (saved) await store.put({ ...saved, variations: entry.variations, updatedAt: new Date().toISOString() });
+      }
+      current.variations = entry.variations;
+      await flushSave();
+      toast(current.libraryId ? 'Variante guardada en la biblioteca.' : 'Variante guardada en esta sesión.');
+    },
+  });
+}
+
+function openPractice(doc, cursor) {
+  let saved = false;
+  openVariation(doc, cursor, {
+    canSave: line => storeReady && !saved && line.length > cursor,
+    save: async line => {
+      const entry = { ...newDocument(), id: crypto.randomUUID(), title: doc.title, initialFen: doc.initialFen,
+        orientation: doc.orientation, moves: line, cursor: line.length };
+      await store.put(validateDocument(entry));
+      saved = true;
+      await updateLibrary();
+      toast('Variante guardada en la biblioteca.');
+    },
+  });
+}
 async function updateLibrary(){
   if(!storeReady)return;
   const entries = await store.all();
@@ -199,7 +249,13 @@ async function updateLibrary(){
   $('library-studies').innerHTML = entries.filter(entry => entry.role)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     .map(study => `<div class="library-item"><div class="library-description"><strong>${escape(study.name)}</strong><small>${study.role === 'profile' ? 'Mi perfil' : 'Rival'} · ${study.records.length} partidas analizadas</small></div><button data-study="${escape(study.id)}">Abrir estudio</button><button class="delete-button" data-remove-study="${escape(study.id)}" aria-label="Eliminar estudio">×</button></div>`).join('');
-  $('library-list').innerHTML=games.length?games.map(g=>`<div class="library-item"><div class="library-description"><strong>${escape(g.title)}</strong><small>${g.moves.length} medias jugadas · ${escape(new Date(g.updatedAt).toLocaleDateString('es-ES'))}</small></div><button data-open="${escape(g.id)}">Abrir</button><button class="delete-button" data-delete="${escape(g.id)}" aria-label="Eliminar ${escape(g.title)}">×</button></div>`).join(''):'<p>Todavía no hay partidas. Usa «Guardar en biblioteca» para añadir la primera.</p>';
+  const chapters = games.filter(studyChapter);
+  const regular = games.filter(game => !studyChapter(game));
+  $('library-lichess').innerHTML = chapters.length ? '<h3>Estudios de Lichess</h3>' + chapters.map(game => {
+    const title = pgnHeader(game.sourcePgn, 'StudyName');
+    return `<div class="library-item"><div class="library-description"><strong>${escape(game.title)}</strong><small>${escape(title)} · <a href="${studyChapter(game)}" target="_blank" rel="noopener noreferrer">Original en Lichess</a></small></div><button data-open="${game.id}">Abrir capítulo</button><button class="delete-button" data-delete="${game.id}" aria-label="Eliminar capítulo">×</button></div>`;
+  }).join('') : '';
+  $('library-list').innerHTML=regular.length?regular.map(g=>`<div class="library-item"><div class="library-description"><strong>${escape(g.title)}</strong><small>${g.moves.length} medias jugadas · ${escape(new Date(g.updatedAt).toLocaleDateString('es-ES'))}</small></div><button data-open="${escape(g.id)}">Abrir</button><button class="delete-button" data-delete="${escape(g.id)}" aria-label="Eliminar ${escape(g.title)}">×</button></div>`).join(''):'<p>Todavía no hay partidas. Usa «Guardar en biblioteca» para añadir la primera.</p>';
 }
 async function makeBackup(){
   if(!storeReady)throw Error('El almacenamiento no está disponible. Exporta al menos el PGN actual.');
@@ -209,6 +265,23 @@ async function makeBackup(){
   return JSON.stringify({application:'piolin_chess',schema:1,exportedAt:new Date().toISOString(),draft:structuredClone(doc),games,studies},null,2);
 }
 function action(id,fn){$(id).addEventListener('click',()=>Promise.resolve().then(fn).catch(showError));}
+action('explore-game', () => exploreGame());
+action('update-app', async () => {
+  const button = $('update-app');
+  const report = message => { $('update-status').textContent = message; };
+  button.disabled = true;
+  try { await updateApp(registration, initialWorker, flushSave, report); }
+  catch (error) { report(error.message); }
+  finally { button.disabled = false; }
+});
+setupLichessStudies($, store, updateLibrary);
+function renderTrapCatalog() {
+  const side = $('trap-color').value;
+  $('trap-catalog').replaceChildren(...openingTraps.filter(trap => !side || trap.color === side)
+    .map(trap => trapCard(trap, openPractice)));
+}
+action('traps-open', () => { renderTrapCatalog(); $('traps-dialog').showModal(); });
+$('trap-color').addEventListener('change', renderTrapCatalog);
 action('flip',()=>{doc.orientation=doc.orientation==='white'?'black':'white';render();markDirty();});
 action('first',()=>jump(0));action('prev',()=>jump(doc.cursor-1));action('next',()=>jump(doc.cursor+1));action('last',()=>jump(doc.moves.length));
 $('moves').addEventListener('click',e=>{const ply=e.target.closest('[data-ply]')?.dataset.ply;if(ply)jump(Number(ply));});
@@ -292,7 +365,7 @@ const openStudy = setupStudy({
     await updateLibrary();
     navigator.storage?.persist?.().catch(() => {});
   },
-  showError,
+  showError, openPractice,
 });
 $('library-studies').addEventListener('click', event => {
   const id = event.target.closest('[data-study]')?.dataset.study;
@@ -310,9 +383,9 @@ action('save-library',async()=>{
   await store.put(entry);doc.libraryId=entry.id;await flushSave();await updateLibrary();
   navigator.storage?.persist?.().catch(()=>{});toast('Partida guardada en tu biblioteca.');
 });
-$('library-list').addEventListener('click',e=>{(async()=>{
+$('library-dialog').addEventListener('click',e=>{(async()=>{
   const id=e.target.closest('[data-open]')?.dataset.open,del=e.target.closest('[data-delete]')?.dataset.delete;
-  if(id){if((doc.moves.length||doc.notes)&&!confirm('¿Abrir esta partida y sustituir la sesión actual?'))return;const game=validateDocument(await store.get(id));doc={...game,id:'draft',libraryId:game.id};render();await flushSave();$('library-dialog').close();}
+  if(id){if((doc.moves.length||doc.notes)&&!confirm('¿Abrir esta partida y sustituir la sesión actual?'))return;const game=validateDocument(await store.get(id));endBot();doc={...game,id:'draft',libraryId:game.id};render();await flushSave();$('library-dialog').close();if(studyChapter(game))exploreGame();}
   if(del&&confirm('¿Eliminar esta partida de la biblioteca?')){await store.remove(del);if(doc.libraryId===del){delete doc.libraryId;markDirty();}await updateLibrary();}
 })().catch(showError);});
 action('backup-export',async()=>{download('piolin_copia_'+new Date().toISOString().slice(0,10)+'.json',await makeBackup());toast('Copia exportada. Consérvala fuera del navegador.');});

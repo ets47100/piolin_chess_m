@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Chess, DEFAULT_POSITION } from 'chess.js';
-export const APP_VERSION='3.2.0';
+import { pgnMainLine } from './variations.js';
+export const APP_VERSION='3.3.0';
 export const DEFAULT_FEN=DEFAULT_POSITION;
 export function positionAt(doc, cursor=doc.cursor) {
   const chess=new Chess(doc.initialFen);
@@ -24,6 +25,16 @@ export function validateDocument(value) {
   // Stockfish necesita un rey por bando y el rey que no tiene el turno a salvo.
   validateEngineFen(chess.fen());
   for(const move of value.moves) chess.move(move);
+  const variations = [];
+  if (Array.isArray(value.variations)) {
+    for (const line of value.variations.slice(0, 100)) {
+      if (!Array.isArray(line) || line.length > 6000 || line.some(san => typeof san !== 'string' || san.length > 20)) continue;
+      try {
+        const branch = new Chess(value.initialFen);
+        variations.push(line.map(san => branch.move(san).san));
+      } catch { /* Una variante incompatible no invalida la partida. */ }
+    }
+  }
   const analyses={};
   if(value.analyses&&typeof value.analyses==='object'&&!Array.isArray(value.analyses)){
     for(const [fen,result] of Object.entries(value.analyses).slice(-32)){
@@ -36,7 +47,7 @@ export function validateDocument(value) {
   }
   return {schema:1,id:value.id,title:value.title,initialFen:value.initialFen,
     moves:[...value.moves],cursor:value.cursor,notes:value.notes,
-    orientation:value.orientation,depth:[10,12,14,16,18,20].includes(value.depth)?value.depth:14,analyses,...(typeof value.libraryId==='string'&&value.libraryId.length<100?{libraryId:value.libraryId}:{}),...(typeof value.studyPlayer==='string'&&value.studyPlayer.length<=200?{studyPlayer:value.studyPlayer}:{}),...(typeof value.sourcePgn==='string'&&value.sourcePgn.length<=2000000?{sourcePgn:value.sourcePgn}:{}),updatedAt:typeof value.updatedAt==='string'?value.updatedAt:new Date().toISOString()};
+    orientation:value.orientation,...(variations.length?{variations}:{}),depth:[10,12,14,16,18,20].includes(value.depth)?value.depth:14,analyses,...(typeof value.libraryId==='string'&&value.libraryId.length<100?{libraryId:value.libraryId}:{}),...(typeof value.studyPlayer==='string'&&value.studyPlayer.length<=200?{studyPlayer:value.studyPlayer}:{}),...(typeof value.sourcePgn==='string'&&value.sourcePgn.length<=2000000?{sourcePgn:value.sourcePgn}:{}),updatedAt:typeof value.updatedAt==='string'?value.updatedAt:new Date().toISOString()};
 }
 export function validateEngineFen(fen) {
   if(typeof fen!=='string' || /[\r\n\x00]/.test(fen)) throw Error('FEN no válido.');
@@ -86,7 +97,11 @@ export function importText(text) {
 }
 export function exportPgn(doc) {
   const chess=positionAt(doc,doc.moves.length);
-  if(doc.sourcePgn){const original=new Chess();original.loadPgn(doc.sourcePgn);if(JSON.stringify(original.history())===JSON.stringify(doc.moves))return doc.sourcePgn;}
+  if(doc.sourcePgn) {
+    try {
+      if (JSON.stringify(pgnMainLine(doc.initialFen, doc.sourcePgn)) === JSON.stringify(doc.moves)) return doc.sourcePgn;
+    } catch { /* La línea actual se puede exportar aunque el PGN de origen haya cambiado. */ }
+  }
   chess.setHeader('Event',doc.title); chess.setHeader('White','Blancas');chess.setHeader('Black','Negras');
   return chess.pgn({maxWidth:80});
 }

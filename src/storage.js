@@ -26,6 +26,21 @@ export class LocalStore {
   putMany(docs){
     return this.tx('readwrite',store=>{for(const doc of docs)store.put(doc);});
   }
+  async importChapters(chapters) {
+    let added = 0;
+    await this.tx('readwrite', store => {
+      for (const chapter of chapters) {
+        const existing = store.get(chapter.id);
+        existing.onsuccess = () => {
+          if (!existing.result) {
+            store.put(chapter);
+            added++;
+          }
+        };
+      }
+    });
+    return added;
+  }
   saveStudy(study, gameKey) {
     return this.tx('readwrite', store => {
       const request = store.getAll();

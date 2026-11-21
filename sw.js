@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-const CACHE_NAME = 'piolin-chess-pwa-v9';
+const CACHE_NAME = 'piolin-chess-pwa-v10';
 const ENGINE_CACHE = 'piolin-engine-v1';
 const ENGINE_WASM = 'engine/full/stockfish-19.wasm';
 const ASSETS = [
@@ -33,7 +33,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => Promise.all(
-      keys.filter((k) => k !== APP_ASSET_CACHE && k !== ENGINE_CACHE).map((k) => caches.delete(k))
+      keys.filter((k) => k.startsWith('piolin-chess-pwa-') && k !== APP_ASSET_CACHE && k !== ENGINE_CACHE).map((k) => caches.delete(k))
     )).then(() => self.clients.claim())
   );
 });
