@@ -5,18 +5,34 @@ import { LocalEngine } from './engine.js';
 import { legalDests, positionAt, pvToSan } from './model.js';
 import { moveLabel } from './variations.js';
 import { trapCard, trapMatches } from './opening-traps.js';
+import { recordAttempt, renderScanner } from './scanner-view.js';
 import { analyzeStudyGame, lessons, playerKey, prepareOpening, rhythms, selectGames, studyGame, summarize } from './player-study.js';
 
 const $ = id => document.getElementById(id);
 
-export function setupStudy({ load, save, showError, openPractice }) {
+export function setupStudy({ load, save, updateSaved, showError, openPractice, choosePromotion, startRevenge }) {
   const dialog = $('study-dialog'), form = $('study-form'), player = $('study-player');
   const start = $('study-start'), pause = $('study-pause'), status = $('study-status');
   const progress = $('study-progress'), results = $('study-results');
   const onlyBatch = $('study-only-batch'), role = $('study-role'), single = $('study-single');
   const color = $('study-color'), rhythm = $('study-rhythm'), limit = $('study-limit');
   const saveButton = $('study-save');
-  const filters = [player, role, rhythm, color, limit, onlyBatch, single];
+  const from = $('scan-from'), to = $('scan-to');
+  const filters = [player, role, rhythm, color, limit, onlyBatch, single, from, to];
+  const tabs = [...dialog.querySelectorAll('[data-scan-tab]')];
+  const panels = [...dialog.querySelectorAll('[data-scan-panel]')];
+  const training = $('scan-training'), week = $('scan-week');
+  function switchTab(key) {
+    for (const tab of tabs) tab.setAttribute('aria-pressed', String(tab.dataset.scanTab === key));
+    for (const panel of panels) panel.hidden = panel.dataset.scanPanel !== key;
+  }
+  for (const tab of tabs) tab.addEventListener('click', () => switchTab(tab.dataset.scanTab));
+  for (const [id, source] of [['scan-import-online', 'online-open'], ['scan-import-pgn', 'import-open']]) {
+    $(id).addEventListener('click', () => { dialog.close(); $(source).click(); });
+  }
+  function refreshTabs() {
+    for (const tab of tabs) tab.disabled = tab.dataset.scanTab !== 'sample' && !job?.records.length;
+  }
   const exercise = $('study-exercise'), replay = $('study-replay');
   let replayBoard, replayGame, replayPly;
   function renderReplay() {
@@ -37,9 +53,9 @@ export function setupStudy({ load, save, showError, openPractice }) {
     const orientation = replayGame.colors[0] === 'b' ? 'black' : 'white';
     openPractice({ ...replayGame.doc, orientation }, replayPly);
   });
-  function openReplay(game) {
+  function openReplay(game, ply = 0) {
     replayGame = game;
-    replayPly = 0;
+    replayPly = Math.min(ply, game.doc.moves.length);
     $('study-replay-title').textContent = `${game.white} – ${game.black}`;
     replay.showModal();
     replayBoard ||= Chessground($('study-replay-board'), { viewOnly: true, drawable: { enabled: false } });
@@ -52,7 +68,7 @@ export function setupStudy({ load, save, showError, openPractice }) {
     const entries = await load();
     profiles = entries.filter(entry => entry.role === 'profile');
     library = entries.filter(entry => !entry.role).map(studyGame).filter(Boolean);
-    batch = games?.map(studyGame) || saved?.records.map(record => record.game);
+    batch = games?.map(studyGame) || saved?.sample || saved?.records.map(record => record.game);
     skipped = omitted;
     const users = new Map();
     for (const game of batch || library) {
@@ -67,17 +83,23 @@ export function setupStudy({ load, save, showError, openPractice }) {
     rhythm.value = saved?.rhythm || 'all';
     role.value = saved?.role || '';
     setColorOptions(saved?.color);
-    limit.value = 'all';
+    limit.value = saved?.sample ? (saved.filters?.limit || 'all') : saved ? 'all' : '20';
+    from.value = saved?.filters?.from || '';
+    to.value = saved?.filters?.to || '';
     single.value = '';
+    switchTab('sample');
     job = undefined;
     updateSelection();
     if (saved) {
+      single.value = saved.filters?.single || '';
       job = { ...saved, key: selectionKey(selection()), saved: true };
       renderReport();
       progress.hidden = false;
-      showProgress(saved.records.length, saved.records.length, 'Estudio guardado.');
-      start.textContent = 'Analizar de nuevo';
+      showProgress(saved.records.length, Math.max(saved.records.length, selection().length), 'Estudio guardado.');
+      start.textContent = saved.records.length < selection().length ? 'Continuar análisis' : 'Analizar de nuevo';
       $('study-exit').textContent = 'Cerrar estudio';
+      refreshTabs();
+      switchTab('report');
     }
     dialog.showModal();
   }
@@ -93,7 +115,11 @@ export function setupStudy({ load, save, showError, openPractice }) {
   function selection(individual = true) {
     const candidates = batch ? (onlyBatch.checked ? batch : [...batch, ...library]) : library;
     const side = role.value === 'rival' ? (color.value === 'w' ? 'b' : 'w') : color.value;
-    const games = selectGames(candidates, player.value, side, rhythm.value, Number(limit.value) || Infinity);
+    const withinDates = candidates.filter(game => {
+      const date = game.date.replaceAll('.', '-');
+      return (!from.value || date >= from.value) && (!to.value || (date && date <= to.value));
+    });
+    const games = selectGames(withinDates, player.value, side, rhythm.value, Number(limit.value) || Infinity);
     return individual && single.value ? games.filter(game => game.key === single.value) : games;
   }
 
@@ -106,6 +132,8 @@ export function setupStudy({ load, save, showError, openPractice }) {
       new Option(`${game.white} – ${game.black} · ${game.date || 'Sin fecha'} · ${game.colors[0] === 'w' ? 'Blancas' : 'Negras'}`, game.key)));
     if (available.some(game => game.key === selected)) single.value = selected;
     const games = selection();
+    const withClock = games.filter(game => /\[%clk\s+\d+:\d+:\d/.test(game.doc.sourcePgn || '')).length;
+    $('scan-preview').textContent = `${withClock} de ${games.length} partidas incluyen reloj en el PGN.`;
     if (job?.key !== selectionKey(games)) job = undefined;
     status.textContent = games.length
       ? `${games.length} partidas seleccionadas.${skipped ? ` ${skipped} PGN omitidos.` : ''}`
@@ -115,8 +143,9 @@ export function setupStudy({ load, save, showError, openPractice }) {
     results.replaceChildren();
     if (job?.records.length) renderReport();
     start.disabled = !role.value || !games.length;
-    start.textContent = !job ? 'Analizar partidas' : job.records.length < games.length ? 'Continuar análisis' : 'Analizar de nuevo';
+    start.textContent = !job ? 'Escanear' : job.records.length < games.length ? 'Continuar análisis' : 'Analizar de nuevo';
     updateSave();
+    refreshTabs();
   }
 
   function updateSave() {
@@ -129,9 +158,12 @@ export function setupStudy({ load, save, showError, openPractice }) {
     const current = job;
     saveButton.disabled = true;
     try {
-      const { role, player, name, records, plans, color, rhythm } = current;
-      await save({ id: 'study:' + crypto.randomUUID(), role, player, name, records,
-        plans, color, rhythm, updatedAt: new Date().toISOString() });
+      const { role, player, name, records, plans, color, rhythm, attempts, week } = current;
+      const id = current.id || 'study:' + crypto.randomUUID();
+      await save({ id, role, player, name, records, attempts, week, plans, color, rhythm,
+        sample: selection(), filters: { from: from.value, to: to.value, limit: limit.value, single: single.value },
+        updatedAt: new Date().toISOString() });
+      current.id = id;
       current.saved = true;
       if (job === current) {
         updateSave();
@@ -150,12 +182,17 @@ export function setupStudy({ load, save, showError, openPractice }) {
     status.textContent = `${done} de ${total} partidas analizadas.${detail ? ' ' + detail : ''}`;
   }
 
+  function saveProgress() {
+    if (!job?.saved || !job.id) return;
+    updateSaved(job.id, { attempts: { ...job.attempts }, week: { ...job.week } }).catch(showError);
+  }
   function renderReport() {
     results.replaceChildren();
     const note = document.createElement('p');
     note.textContent = 'Estimación de Stockfish. Los patrones estratégicos son pistas para revisar. Las comparaciones usan partidas del mismo ritmo; si falta la fecha PGN, ese grupo no muestra evolución.';
     results.append(note);
     const rival = job.role === 'rival';
+    renderScanner({ job, report: results, training, week, openExercise, openReplay, progress: saveProgress });
     if (rival) renderPreparation();
     const evidence = document.createElement('details');
     const summary = document.createElement('summary');
@@ -268,37 +305,88 @@ export function setupStudy({ load, save, showError, openPractice }) {
     board.set({
       fen: position.fen(), orientation, check: position.inCheck(), lastMove: undefined,
       turnColor: position.turn() === 'w' ? 'white' : 'black',
-      movable: { free: false, color: solved ? undefined : orientation, dests: legalDests(position) },
+      movable: { free: false, color: solved || checking ? undefined : orientation, dests: legalDests(position) },
     });
   }
 
+  let exerciseSerial = 0, exerciseStep = 0, checking;
+  const uciMove = (chess, uci) => chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+  async function tryExerciseMove(from, to) {
+    if (solved || checking) { renderExercise(); return; }
+    const serial = exerciseSerial;
+    const candidates = position.moves({ verbose: true }).filter(move => move.from === from && move.to === to);
+    if (!candidates.length) { renderExercise(); return; }
+    let promotion;
+    if (candidates.length > 1) {
+      renderExercise();
+      promotion = await choosePromotion();
+      if (!promotion || serial !== exerciseSerial) return;
+    }
+    const move = position.move({ from, to, promotion });
+    const feedback = $('study-exercise-feedback');
+    if (example.line) {
+      if (move.lan !== example.line[exerciseStep]) {
+        position.undo();
+        feedback.textContent = 'Prueba otra jugada.';
+        recordAttempt(job, example, false);
+      } else {
+        exerciseStep++;
+        if (example.line[exerciseStep]) uciMove(position, example.line[exerciseStep++]);
+        solved = exerciseStep === example.line.length;
+        feedback.textContent = solved ? 'Puzle resuelto.' : 'Buena jugada. Continúa.';
+        if (solved) recordAttempt(job, example, true);
+      }
+    } else {
+      let correct = move.lan === example.best;
+      if (!correct && example.best) {
+        const worker = new LocalEngine({ options: { Hash: 16 } });
+        checking = worker;
+        feedback.textContent = 'Stockfish está comprobando esta alternativa…';
+        renderExercise();
+        try {
+          const best = uciMove(new Chess(example.fen), example.best);
+          const evaluate = async fen => {
+            const chess = new Chess(fen);
+            if (chess.isCheckmate()) return 10000;
+            if (chess.isDraw()) return 0;
+            const ev = (await worker.analyze(fen, 12)).evaluation;
+            if (ev?.bound !== 'exact') return null;
+            return ev.type === 'cp' ? -ev.value : -Math.sign(ev.value) * (10000 - Math.abs(ev.value));
+          };
+          const expected = await evaluate(best.after);
+          const alternative = await evaluate(move.after);
+          correct = expected !== null && alternative !== null &&
+            (expected > 9000 ? alternative >= expected : alternative >= expected - 25);
+        } catch { /* Se puede seguir con la jugada confirmada en el escaneo. */ }
+        finally { worker.destroy(); if (checking === worker) checking = undefined; }
+      }
+      if (serial !== exerciseSerial) return;
+      solved = correct;
+      if (!correct) position.undo();
+      feedback.textContent = correct ? `${move.san} · Buena jugada.` : `${move.san} · Prueba otra continuación o consulta la solución.`;
+      recordAttempt(job, example, correct);
+    }
+    saveProgress();
+    renderExercise();
+  }
   function openExercise(event) {
     example = event;
     exercise.showModal();
     if (!board) {
       board = Chessground($('study-board'), {
         coordinates: true, drawable: { enabled: false }, premovable: { enabled: false },
-        movable: { events: { after: (from, to) => {
-          const candidates = position.moves({ verbose: true }).filter(move => move.from === from && move.to === to);
-          if (!candidates.length || solved) return;
-          if (candidates.some(move => move.promotion)) {
-            $('study-exercise-feedback').textContent = 'Puedes consultar la variante del motor para ver la pieza de promoción.';
-            renderExercise();
-            return;
-          }
-          const move = position.move({ from, to });
-          solved = true;
-          $('study-exercise-feedback').textContent = move.lan === example.best
-            ? `${move.san}: coincide con la primera opción de Stockfish.`
-            : `Has probado ${move.san}. Consulta la variante del motor para comparar las ideas.`;
-          renderExercise();
-        } } },
+        movable: { events: { after: (from, to) => tryExerciseMove(from, to).catch(showError) } },
       });
     }
     resetExercise();
   }
 
   function resetExercise() {
+    exerciseSerial++;
+    checking?.destroy();
+    checking = undefined;
+    exerciseStep = 0;
+    $('scan-revenge').hidden = !(example.before >= 150 && job?.role === 'profile');
     position = new Chess(example.fen);
     solved = false;
     $('study-exercise-title').textContent = example.game;
@@ -317,7 +405,7 @@ export function setupStudy({ load, save, showError, openPractice }) {
   $('explore-exercise').addEventListener('click', () => {
     const chess = new Chess(example.fen);
     const moves = [];
-    if (solved) {
+    if (position.history().length) {
       moves.push(...position.history());
     } else if (!$('study-exercise-solution').hidden && example.best) {
       const { best } = example;
@@ -325,11 +413,26 @@ export function setupStudy({ load, save, showError, openPractice }) {
       moves.push(move.san);
     }
     openPractice({ title: example.game, initialFen: example.fen,
-      orientation: example.color === 'w' ? 'white' : 'black', moves }, solved ? moves.length : 0);
+      orientation: example.color === 'w' ? 'white' : 'black', moves }, position.history().length);
+  });
+  $('scan-revenge').addEventListener('click', () => startRevenge(example, () => {
+    exercise.close();
+    dialog.close();
+  }));
+  exercise.addEventListener('close', () => {
+    exerciseSerial++;
+    checking?.destroy();
+    checking = undefined;
+    if (dialog.open && job?.records.length) renderReport();
   });
   $('study-exercise-reset').addEventListener('click', resetExercise);
   $('study-exercise-reveal').addEventListener('click', () => {
     const solution = $('study-exercise-solution');
+    if (example.line) {
+      solution.textContent = example.solution;
+      solution.hidden = false;
+      return;
+    }
     solution.textContent = `En la partida: ${example.move}${example.reply ? ' · Respuesta y continuación: ' + example.reply : ''}. Sugerencia de Stockfish: ${example.solution || pvToSan(example.fen, [example.best])}.`;
     solution.hidden = false;
   });
@@ -350,19 +453,22 @@ export function setupStudy({ load, save, showError, openPractice }) {
     start.disabled = true;
     pause.disabled = false;
     for (const filter of filters) filter.disabled = true;
+    $('scan-import-online').disabled = $('scan-import-pgn').disabled = true;
+    switchTab('sample');
     results.replaceChildren();
+    for (const tab of tabs) tab.disabled = tab.dataset.scanTab !== 'sample';
     progress.hidden = false;
     showProgress(job.records.length, games.length, 'Preparando Stockfish…');
     let message = '';
     try {
       for (const game of games.slice(job.records.length)) {
         if (engine !== worker) break;
-        const findings = await analyzeStudyGame(game, (fen, depth) => worker.analyze(fen, depth),
+        const analysis = await analyzeStudyGame(game, (fen, depth) => worker.analyze(fen, depth),
           (ply, total) => {
             if (ply <= 2 || ply % 12 < 2) showProgress(job.records.length, games.length, `Posición ${ply} de ${total}.`);
           }, () => engine !== worker);
-        if (!findings || engine !== worker) break;
-        job.records.push({ game, findings });
+        if (!analysis || engine !== worker) break;
+        job.records.push({ game, ...analysis });
         showProgress(job.records.length, games.length);
       }
       if (job.role === 'rival' && engine === worker) {
@@ -386,6 +492,7 @@ export function setupStudy({ load, save, showError, openPractice }) {
       engine = undefined;
       running = false;
       for (const filter of filters) filter.disabled = false;
+      $('scan-import-online').disabled = $('scan-import-pgn').disabled = false;
       pause.disabled = true;
       if (!dialog.open) { job = undefined; return; }
       start.disabled = false;
@@ -393,7 +500,15 @@ export function setupStudy({ load, save, showError, openPractice }) {
       showProgress(job.records.length, games.length, message || (paused
         ? 'Análisis en pausa. Se conservan las partidas completadas mientras esta pestaña siga abierta.'
         : 'Análisis terminado.'));
-      if (job.records.length) renderReport();
+      if (job.records.length) {
+        if (job.saved && job.id) {
+          const current = job;
+          try { await updateSaved(current.id, { records: current.records, plans: current.plans }); }
+          catch (error) { current.saved = false; showError(error); }
+        }
+        if (dialog.open && job) { renderReport(); switchTab('report'); }
+      }
+      refreshTabs();
       updateSave();
     }
   });

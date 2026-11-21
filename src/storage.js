@@ -41,6 +41,14 @@ export class LocalStore {
     });
     return added;
   }
+  updateStudy(id, changes) {
+    return this.tx('readwrite', store => {
+      const request = store.get(id);
+      request.onsuccess = () => {
+        if (request.result?.role) store.put({ ...request.result, ...changes });
+      };
+    });
+  }
   saveStudy(study, gameKey) {
     return this.tx('readwrite', store => {
       const request = store.getAll();

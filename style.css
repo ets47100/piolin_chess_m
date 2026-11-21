@@ -38,3 +38,9 @@
 #lichess-study-form .text-field{width:min(100%,28rem)}
 #lichess-studies a,.library-description a{color:var(--green)}
 .board-actions{flex-wrap:wrap}
+.scanner-tabs{display:flex;flex-wrap:wrap;gap:.45rem;margin:.7rem 0}
+.scanner-tabs [aria-pressed=true]{outline:2px solid var(--green)}
+.scan-scores{width:100%;border-collapse:collapse;text-align:left}
+.scan-scores th,.scan-scores td{border-bottom:1px solid var(--line);padding:.35rem}
+.scan-radar{display:block;width:min(100%,300px);height:auto;margin:.5rem auto}
+#scan-training button,#scan-week button{margin:.2rem}

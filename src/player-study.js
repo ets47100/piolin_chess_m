@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Chess } from 'chess.js';
 import { pgnHeader, pvToSan } from './model.js';
+import { clockData, exerciseTheme, phaseOf } from './scanner.js';
 
 export const rhythms = {
   bullet: 'Bala', blitz: 'Blitz', rapid: 'Rápidas', classical: 'Clásicas',
@@ -110,7 +111,7 @@ function score(result, sideToMove, player) {
   const ev = result?.evaluation;
   if (!ev || ev.bound !== 'exact') return null;
   const numeric = ev.type === 'mate' ? (ev.value > 0 ? 1000 : -1000) : Math.max(-900, Math.min(900, ev.value));
-  return numeric * (sideToMove === player ? 1 : -1);
+  return numeric === 0 || sideToMove === player ? numeric : -numeric;
 }
 
 function lossOf(before, after, player) {
@@ -168,28 +169,40 @@ export async function analyzeStudyGame(game, analyze, onProgress, isPaused) {
     }
     return scans.get(key);
   };
-  const findings = [];
+  const findings = [], metrics = [];
+  const clocks = clockData(game.doc.sourcePgn, moves, game.doc.initialFen);
   for (let i = 0; i < moves.length; i++) {
     if (isPaused()) return null;
     const move = moves[i];
     if (!game.colors.includes(move.color)) continue;
     onProgress(i + 1, moves.length);
-    const first = await evaluate(move.before, 8);
-    const second = await evaluate(move.after, 8);
-    if (lossOf(first, second, move.color) < 110) continue;
-    const before = await evaluate(move.before, 12);
-    const after = await evaluate(move.after, 12);
-    const loss = lossOf(before, after, move.color);
+    let before = await evaluate(move.before, 8);
+    let after = await evaluate(move.after, 8);
+    if (lossOf(before, after, move.color) >= 110) {
+      before = await evaluate(move.before, 12);
+      after = await evaluate(move.after, 12);
+    }
+    const position = new Chess(move.before), phase = phaseOf(position);
+    const pre = score(before, move.color, move.color);
+    const post = score(after, move.color === 'w' ? 'b' : 'w', move.color);
+    if (pre === null || post === null) continue;
+    const loss = pre - post;
+    const clock = clocks[i] || { clock: null, beforeClock: null, spent: null };
+    metrics.push({ ply: i + 1, side: move.color, before: pre, after: post, phase, ...clock,
+      tactical: before.evaluation.type === 'mate' || Boolean(before.bestMove &&
+        (position.get(before.bestMove.slice(2, 4)) || position.inCheck())) });
     if (loss < 125 || !before.bestMove) continue;
+    const kind = classify(move, before, after);
     findings.push({
-      kind: classify(move, before, after), game: game.doc.title, ply: i + 1, loss,
+      kind, phase, before: pre, theme: exerciseTheme(move, before, after, phase, kind),
+      game: game.doc.title, ply: i + 1, loss,
       move: move.san, fen: move.before, color: move.color, best: before.bestMove,
       solution: pvToSan(move.before, before.evaluation.pv),
       replyFen: move.after, replyBest: after.bestMove,
       reply: pvToSan(move.after, after.evaluation.pv),
     });
   }
-  return findings;
+  return { findings, metrics };
 }
 
 export function summarize(records) {

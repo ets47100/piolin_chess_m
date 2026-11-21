@@ -81,7 +81,7 @@
       let pgns = [];
       if (platform === 'lichess') {
         const perfParam = perf !== 'all' ? `&perfType=${encodeURIComponent(perf)}` : '';
-        const url = `https://lichess.org/api/games/user/${encodeURIComponent(user)}?max=${max}${perfParam}&pgnInJson=false`;
+        const url = `https://lichess.org/api/games/user/${encodeURIComponent(user)}?max=${max}${perfParam}&pgnInJson=false&clocks=true`;
         const res = await fetch(url, { headers: { Accept: 'application/x-chess-pgn' } });
         if (!res.ok) throw new Error(`Usuario no encontrado en Lichess (${res.status}).`);
         const raw = await res.text();
