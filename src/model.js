@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { Chess, DEFAULT_POSITION } from 'chess.js';
 import { pgnMainLine } from './variations.js';
-export const APP_VERSION='3.3.0';
+export const APP_VERSION='3.4.0';
 export const DEFAULT_FEN=DEFAULT_POSITION;
 export function positionAt(doc, cursor=doc.cursor) {
   const chess=new Chess(doc.initialFen);
@@ -122,7 +122,12 @@ export function parseBackup(text) {
           !Array.isArray(record.game?.colors) || !record.game.colors.every(color => ['w','b'].includes(color)))) {
       throw Error('La copia contiene un estudio no compatible.');
     }
-    return { ...study, id: typeof study.id === 'string' && /^study:[a-f0-9-]{36}$/.test(study.id) ? study.id : 'study:' + crypto.randomUUID(), records:
+    const sample = Array.isArray(study.sample) ? study.sample.map(game => {
+      if (!game || typeof game.key !== 'string' || typeof game.date !== 'string' ||
+          typeof game.white !== 'string' || typeof game.black !== 'string') throw Error('Muestra de estudio no compatible.');
+      return { ...game, doc: validateDocument(game.doc) };
+    }) : undefined;
+    return { ...study, sample, id: typeof study.id === 'string' && /^study:[a-f0-9-]{36}$/.test(study.id) ? study.id : 'study:' + crypto.randomUUID(), records:
       study.records.map(record => ({ ...record, game: { ...record.game, doc: validateDocument(record.game.doc) } })) };
   });
   return {games,studies,draft:b.draft?{...validateDocument(b.draft),id:'draft'}:newDocument()};

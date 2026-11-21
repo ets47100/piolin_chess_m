@@ -259,7 +259,7 @@
     <h2>Mi biblioteca (<span id="lib-modal-count">0</span>)</h2>
     <button aria-label="Cerrar">×</button>
   </form>
-  <button id="study-open" type="button" class="primary">Estudiar jugador</button>
+  <button id="study-open" type="button" class="primary">Escáner de jugador</button>
   <button id="lichess-studies-open" type="button">Estudios de Lichess</button>
   <button id="traps-open" type="button">Gambitos y trampas</button>
   <div id="library-studies"></div>
@@ -269,10 +269,20 @@
 
 <dialog id="study-dialog">
   <form method="dialog" class="dialog-header">
-    <h2>Estudiar jugador</h2>
+    <h2>Escáner de jugador</h2>
     <button aria-label="Cerrar">×</button>
   </form>
-  <form id="study-form">
+  <nav class="scanner-tabs" aria-label="Escáner de jugador">
+    <button type="button" data-scan-tab="sample" aria-pressed="true">Muestra</button>
+    <button type="button" data-scan-tab="report" aria-pressed="false">Conclusiones</button>
+    <button type="button" data-scan-tab="training" aria-pressed="false">Entrenamiento</button>
+    <button type="button" data-scan-tab="week" aria-pressed="false">Plan semanal</button>
+  </nav>
+  <form id="study-form" data-scan-panel="sample">
+    <div class="dialog-footer">
+      <button id="scan-import-online" type="button">Lichess / Chess.com</button>
+      <button id="scan-import-pgn" type="button">Importar PGN</button>
+    </div>
     <div class="form-grid">
       <label>Jugador <select id="study-player"></select></label>
       <label>Enfoque <select id="study-role" required>
@@ -301,22 +311,30 @@
       <label>Partidas
         <select id="study-limit">
           <option value="10">Últimas 10</option>
+          <option value="20" selected>Últimas 20</option>
           <option value="50">Últimas 50</option>
           <option value="100">Últimas 100</option>
           <option value="all">Todas</option>
         </select>
       </label>
     </div>
+    <div class="form-grid">
+      <label>Desde <input id="scan-from" type="date"></label>
+      <label>Hasta <input id="scan-to" type="date"></label>
+    </div>
+    <p id="scan-preview"></p>
     <label id="study-scope" hidden><input id="study-only-batch" type="checkbox"> Solo este lote</label>
     <label>Alcance <select id="study-single"><option value="">Conjunto de partidas</option></select></label>
     <div class="dialog-footer">
-      <button id="study-start" class="primary" type="submit">Analizar partidas</button>
+      <button id="study-start" class="primary" type="submit">Escanear</button>
       <button id="study-pause" type="button" disabled>Pausar análisis</button>
     </div>
   </form>
   <p id="study-status" role="status"></p>
   <progress id="study-progress" aria-label="Progreso del estudio" value="0" hidden></progress>
-  <div id="study-results"></div>
+  <div id="study-results" data-scan-panel="report" hidden></div>
+  <div id="scan-training" data-scan-panel="training" hidden></div>
+  <div id="scan-week" data-scan-panel="week" hidden></div>
   <form method="dialog" class="dialog-footer">
     <button id="study-save" type="button" hidden>Guardar estudio en la biblioteca</button>
     <button id="study-exit">Salir sin guardar</button>
@@ -345,6 +363,7 @@
   <div id="study-board" class="cg-wrap brown"></div>
   <p id="study-exercise-feedback" role="status"></p>
   <div class="dialog-footer">
+    <button id="scan-revenge" type="button" hidden>Revancha contra Piolín</button>
     <button id="study-exercise-reset" type="button">Volver a intentar</button>
     <button id="explore-exercise" type="button">Explorar variante</button>
     <button id="study-exercise-reveal" type="button" class="primary">Ver solución</button>

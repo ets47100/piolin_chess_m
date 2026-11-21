@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-const CACHE_NAME = 'piolin-chess-pwa-v10';
+const CACHE_NAME = 'piolin-chess-pwa-v11';
 const ENGINE_CACHE = 'piolin-engine-v1';
 const ENGINE_WASM = 'engine/full/stockfish-19.wasm';
 const ASSETS = [

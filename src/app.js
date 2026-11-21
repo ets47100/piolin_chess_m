@@ -365,7 +365,8 @@ const openStudy = setupStudy({
     await updateLibrary();
     navigator.storage?.persist?.().catch(() => {});
   },
-  showError, openPractice,
+  updateSaved: (id, changes) => store.updateStudy(id, changes),
+  showError, openPractice, choosePromotion, startRevenge,
 });
 $('library-studies').addEventListener('click', event => {
   const id = event.target.closest('[data-study]')?.dataset.study;
@@ -433,14 +434,35 @@ async function botMove(){
   }catch(e){if(e.name!=='AbortError')throw e;}
   finally{bot.thinking=false;}
 }
+let revenge;
+function startRevenge(event, closeStudy) {
+  revenge = { event, closeStudy };
+  $('bot-color').value = event.color;
+  $('bot-color').disabled = true;
+  $('bot-time').value = '0';
+  $('bot-start').textContent = 'Empezar Revancha';
+  $('bot-dialog').showModal();
+}
+$('bot-dialog').addEventListener('close', () => {
+  revenge = undefined;
+  $('bot-color').disabled = false;
+  $('bot-start').textContent = '¡Empezar Partida!';
+});
 action('play-bot-open',()=>$('bot-dialog').showModal());
 action('bot-start',async()=>{
-  if(doc.moves.length&&!confirm('Empezar una partida nueva sustituirá la sesión actual. ¿Continuar?'))return;
+  const prepared = revenge;
+  if ((doc.moves.length || doc.notes) && !confirm('Empezar sustituirá la sesión actual. ¿Continuar?')) return;
+  const initial = prepared ? validateEngineFen(prepared.event.fen) : undefined;
   await engine.init();
   const human=$('bot-color').value==='b'?'b':'w',seconds=Number($('bot-time').value)||0;
   endBot();bot.color=human==='w'?'b':'w';bot.skill=Number($('bot-strength').value);bot.timed=seconds>0;bot.times={w:seconds,b:seconds};
   doc=newDocument();doc.orientation=human==='w'?'white':'black';doc.title='Partida vs Piolín (nivel '+({1:1,5:2,10:3,15:4,20:5}[bot.skill]||3)+')';
-  bot.active=true;$('mode-badge').textContent='VS MÁQUINA';$('bot-dialog').close();
+  if (prepared) {
+    doc.initialFen = initial;
+    doc.title = ('Revancha · ' + prepared.event.game).slice(0, 200);
+  }
+  bot.active=true;$('mode-badge').textContent=prepared?'REVANCHA':'VS MÁQUINA';$('bot-dialog').close();
+  prepared?.closeStudy();
   clearInterval(bot.clock);
   if(bot.timed)bot.clock=setInterval(()=>{
     if(!bot.active)return;

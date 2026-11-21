@@ -1288,8 +1288,8 @@ function render3(s) {
     }
   }
   for (const [, nodes] of availableSquares.entries()) {
-    for (const node2 of nodes)
-      setVisible(node2, false);
+    for (const node3 of nodes)
+      setVisible(node3, false);
   }
   for (const [k2, p] of pieces) {
     anim2 = anims.get(k2);
@@ -1356,8 +1356,8 @@ function updateBounds(s) {
 var isPieceNode = (el) => el.tagName === "PIECE";
 var isSquareNode = (el) => el.tagName === "SQUARE";
 function removeNodes(s, nodes) {
-  for (const node2 of nodes)
-    s.dom.elements.board.removeChild(node2);
+  for (const node3 of nodes)
+    s.dom.elements.board.removeChild(node3);
 }
 function posZIndex(pos, asWhite) {
   const minZ = 3;
@@ -1943,17 +1943,17 @@ function rootNode(comment) {
   return comment !== null ? { comment, variations: [] } : { variations: [] };
 }
 function node(move3, suffix, nag, comment, variations) {
-  const node2 = { move: move3, variations };
+  const node3 = { move: move3, variations };
   if (suffix) {
-    node2.suffix = suffix;
+    node3.suffix = suffix;
   }
   if (nag) {
-    node2.nag = nag;
+    node3.nag = nag;
   }
   if (comment !== null) {
-    node2.comment = comment;
+    node3.comment = comment;
   }
-  return node2;
+  return node3;
 }
 function lineToTree(...nodes) {
   const [root, ...rest] = nodes;
@@ -1969,14 +1969,14 @@ function lineToTree(...nodes) {
 }
 function pgn(headers, game) {
   if (game.marker && game.marker.comment) {
-    let node2 = game.root;
+    let node3 = game.root;
     while (true) {
-      const next = node2.variations[0];
+      const next = node3.variations[0];
       if (!next) {
-        node2.comment = game.marker.comment;
+        node3.comment = game.marker.comment;
         break;
       }
-      node2 = next;
+      node3 = next;
     }
   }
   return {
@@ -5046,21 +5046,21 @@ var Chess = class {
         this.load(headers["FEN"], { preserveHeaders: true });
       }
     }
-    let node2 = parsedPgn.root;
-    while (node2) {
-      if (node2.move) {
-        const move3 = this._moveFromSan(node2.move, strict);
+    let node3 = parsedPgn.root;
+    while (node3) {
+      if (node3.move) {
+        const move3 = this._moveFromSan(node3.move, strict);
         if (move3 == null) {
-          throw new Error(`Invalid move in PGN: ${node2.move}`);
+          throw new Error(`Invalid move in PGN: ${node3.move}`);
         } else {
           this._makeMove(move3);
           this._incPositionCount();
         }
       }
-      if (node2.comment !== void 0) {
-        this._comments[this.fen()] = node2.comment;
+      if (node3.comment !== void 0) {
+        this._comments[this.fen()] = node3.comment;
       }
-      node2 = node2.variations[0];
+      node3 = node3.variations[0];
     }
     const result = parsedPgn.result;
     if (result && Object.keys(this._header).length && this._header["Result"] !== result) {
@@ -5410,16 +5410,16 @@ function lineText(initialFen, moves2) {
 function makeNode(fen, parent, san) {
   return { fen, parent, san, children: [], comment: "" };
 }
-function addMove2(node2, input) {
-  const move3 = new Chess(node2.fen).move(input);
-  const existing = node2.children.find((child2) => child2.san === move3.san);
+function addMove2(node3, input) {
+  const move3 = new Chess(node3.fen).move(input);
+  const existing = node3.children.find((child2) => child2.san === move3.san);
   if (existing) return existing;
-  const child = makeNode(move3.after, node2, move3.san);
-  node2.children.push(child);
+  const child = makeNode(move3.after, node3, move3.san);
+  node3.children.push(child);
   return child;
 }
 function readPgn(root, pgn2, strictMain) {
-  let node2 = root;
+  let node3 = root;
   const returns = [];
   const tokens = pgn2.matchAll(/\[[A-Za-z][A-Za-z0-9_]*\s+"(?:\\.|[^"\\])*"\s*\]|\{[^}]*\}|;[^\r\n]*|[()]|\$\d+|\d+\.+|[^\s{}();\[\]$]+/g);
   for (const [token] of tokens) {
@@ -5429,23 +5429,23 @@ function readPgn(root, pgn2, strictMain) {
       continue;
     }
     if (token === "(") {
-      returns.push(node2);
-      node2 = node2?.parent ?? node2;
+      returns.push(node3);
+      node3 = node3?.parent ?? node3;
     } else if (token === ")") {
-      node2 = returns.pop();
-    } else if (node2 && (token[0] === "{" || token[0] === ";")) {
+      node3 = returns.pop();
+    } else if (node3 && (token[0] === "{" || token[0] === ";")) {
       const comment = token.slice(1, token[0] === "{" ? -1 : void 0).trim();
-      if (comment) node2.comment += (node2.comment ? "\n" : "") + comment;
-    } else if (node2) {
+      if (comment) node3.comment += (node3.comment ? "\n" : "") + comment;
+    } else if (node3) {
       try {
-        node2 = addMove2(node2, token);
+        node3 = addMove2(node3, token);
       } catch (error) {
         if (strictMain && !returns.length) throw error;
-        node2 = void 0;
+        node3 = void 0;
       }
     }
   }
-  return returns.length ? returns[0] : node2;
+  return returns.length ? returns[0] : node3;
 }
 function pgnMainLine(initialFen, pgn2) {
   return nodeMoves(readPgn(makeNode(initialFen), pgn2, true));
@@ -5457,14 +5457,14 @@ function moveTree(doc2) {
   for (const line of doc2.variations || []) line.reduce(addMove2, root);
   return root;
 }
-function nodeMoves(node2) {
+function nodeMoves(node3) {
   const moves2 = [];
-  for (let current = node2; current.parent; current = current.parent) moves2.push(current.san);
+  for (let current = node3; current.parent; current = current.parent) moves2.push(current.san);
   return moves2.reverse();
 }
 
 // src/model.js
-var APP_VERSION = "3.3.0";
+var APP_VERSION = "3.4.0";
 var DEFAULT_FEN = DEFAULT_POSITION;
 function positionAt(doc2, cursor = doc2.cursor) {
   const chess = new Chess(doc2.initialFen);
@@ -5608,7 +5608,11 @@ function parseBackup(text) {
     if (!["profile", "rival"].includes(study?.role) || typeof study.player !== "string" || typeof study.name !== "string" || !Array.isArray(study.records) || study.records.some((record) => !Array.isArray(record.findings) || !Array.isArray(record.game?.colors) || !record.game.colors.every((color) => ["w", "b"].includes(color)))) {
       throw Error("La copia contiene un estudio no compatible.");
     }
-    return { ...study, id: typeof study.id === "string" && /^study:[a-f0-9-]{36}$/.test(study.id) ? study.id : "study:" + crypto.randomUUID(), records: study.records.map((record) => ({ ...record, game: { ...record.game, doc: validateDocument(record.game.doc) } })) };
+    const sample = Array.isArray(study.sample) ? study.sample.map((game) => {
+      if (!game || typeof game.key !== "string" || typeof game.date !== "string" || typeof game.white !== "string" || typeof game.black !== "string") throw Error("Muestra de estudio no compatible.");
+      return { ...game, doc: validateDocument(game.doc) };
+    }) : void 0;
+    return { ...study, sample, id: typeof study.id === "string" && /^study:[a-f0-9-]{36}$/.test(study.id) ? study.id : "study:" + crypto.randomUUID(), records: study.records.map((record) => ({ ...record, game: { ...record.game, doc: validateDocument(record.game.doc) } })) };
   });
   return { games, studies, draft: b.draft ? { ...validateDocument(b.draft), id: "draft" } : newDocument() };
 }
@@ -5632,6 +5636,145 @@ function pvToSan(fen, moves2) {
     }
   }
   return out.join(" ");
+}
+
+// src/scanner.js
+var phases = { opening: "Apertura", middle: "Medio juego", ending: "Final" };
+var themes = {
+  mate: "Mate",
+  mateIn2: "Mate en dos",
+  hangingPiece: "Pieza colgada",
+  pin: "Clavada",
+  pawnEndgame: "Final de peones",
+  rookEndgame: "Final de torres",
+  kingsideAttack: "Ataque al rey",
+  opening: "Apertura",
+  endgame: "Final",
+  middlegame: "Medio juego",
+  short: "T\xE1ctica corta"
+};
+function phaseOf(chess) {
+  const board2 = chess.board().flat().filter(Boolean);
+  const material2 = board2.reduce((sum, piece) => sum + ({ q: 4, r: 2, b: 1, n: 1 }[piece.type] || 0), 0);
+  if (material2 <= 8) return "ending";
+  const undeveloped = board2.filter((piece) => ["n", "b"].includes(piece.type) && piece.square[1] === (piece.color === "w" ? "1" : "8")).length;
+  return chess.moveNumber() <= 12 && undeveloped >= 3 ? "opening" : "middle";
+}
+function clockData(pgn2, moves2, initialFen) {
+  const after = /* @__PURE__ */ new Map();
+  try {
+    const chess = new Chess();
+    if (!pgn2) return [];
+    chess.loadPgn(pgn2);
+    for (const { fen, comment } of chess.getComments()) {
+      const match = comment.match(/\[%clk\s+(\d+):([0-5]?\d):([0-5]?\d(?:\.\d+)?)\]/);
+      if (match) after.set(fen, Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]));
+    }
+  } catch {
+    return [];
+  }
+  const control = pgnHeader(pgn2, "TimeControl").match(/^(\d+)(?:\+(\d+))?$/);
+  const increment = control ? Number(control[2] || 0) : null;
+  const starting = initialFen === DEFAULT_FEN;
+  const previous = { w: control && starting ? Number(control[1]) : null, b: control && starting ? Number(control[1]) : null };
+  return moves2.map((move3) => {
+    const clock = after.get(move3.after) ?? null;
+    const old = previous[move3.color];
+    const spent = clock !== null && old !== null && increment !== null ? old + increment - clock : null;
+    previous[move3.color] = clock;
+    return { clock, spent: spent !== null && spent >= -0.2 ? Math.max(0, spent) : null, beforeClock: old };
+  });
+}
+function pinned(chess, square) {
+  const piece = chess.get(square);
+  if (!piece || piece.type === "k") return false;
+  const king2 = chess.board().flat().find((item) => item?.type === "k" && item.color === piece.color);
+  const dx = square.charCodeAt(0) - king2.square.charCodeAt(0);
+  const dy = Number(square[1]) - Number(king2.square[1]);
+  if (dx && dy && Math.abs(dx) !== Math.abs(dy)) return false;
+  let x = king2.square.charCodeAt(0) + Math.sign(dx), y = Number(king2.square[1]) + Math.sign(dy);
+  let passed = false;
+  for (; x >= 97 && x <= 104 && y >= 1 && y <= 8; x += Math.sign(dx), y += Math.sign(dy)) {
+    const target = String.fromCharCode(x) + y;
+    if (target === square) {
+      passed = true;
+      continue;
+    }
+    const blocker = chess.get(target);
+    if (!blocker) continue;
+    return passed && blocker.color !== piece.color && (dx && dy ? "bq" : "rq").includes(blocker.type);
+  }
+  return false;
+}
+function exerciseTheme(move3, before, after, phase, kind) {
+  const chess = new Chess(move3.before);
+  const types = chess.board().flat().filter(Boolean).map((piece) => piece.type);
+  if (before.evaluation.type === "mate" && before.evaluation.value === 2) return "mateIn2";
+  if (kind === "mate") return "mate";
+  if (phase === "ending" && types.every((type) => "pk".includes(type))) return "pawnEndgame";
+  if (phase === "ending" && types.every((type) => "prk".includes(type))) return "rookEndgame";
+  const reply = after.bestMove;
+  if (reply) {
+    const position = new Chess(move3.after);
+    const target = reply.slice(2, 4);
+    if (kind === "material" && position.get(target) && pinned(position, target)) return "pin";
+    if (kind === "material" && position.get(target)?.color === move3.color && /[nbrq]/.test(position.get(target).type)) return "hangingPiece";
+  }
+  return kind === "king" ? "kingsideAttack" : { opening: "opening", middle: "middlegame", ending: "endgame" }[phase];
+}
+var winChance = (score2) => 1 / (1 + Math.exp(-37e-4 * score2));
+var average = (values) => values.reduce((sum, value2) => sum + value2, 0) / values.length;
+var accuracy = (values) => values.length >= 5 ? Math.round(average(values.map((item) => 100 * Math.max(0, 1 - Math.max(0, winChance(item.before) - winChance(item.after)))))) : null;
+function scannerSummary(records) {
+  const moves2 = records.flatMap((record) => record.metrics || []).filter((item) => Number.isFinite(item.before) && Number.isFinite(item.after));
+  const findings = records.flatMap((record) => record.findings || []);
+  const phaseMap = Object.keys(phases).map((key2) => {
+    const selected = moves2.filter((item) => item.phase === key2);
+    return { key: key2, count: selected.length, score: accuracy(selected), swings: 0 };
+  });
+  for (const { metrics = [] } of records) {
+    let critical;
+    for (let index = 0; index < metrics.length; index++) {
+      const item = metrics[index], following = metrics.slice(index + 1, index + 4);
+      const loss = item.before - item.after;
+      if (loss < 100 || following.length < 2 || !following.every((next) => next.before <= item.before - loss / 2)) continue;
+      if (!critical || loss > critical.before - critical.after) critical = item;
+    }
+    if (critical) phaseMap.find((row) => row.key === critical.phase).swings++;
+  }
+  const tactical = moves2.filter((item) => item.tactical || item.after <= item.before - 150);
+  const defense = moves2.filter((item) => item.before <= -75 && item.before >= -400);
+  const timed = moves2.filter((item) => item.clock !== null && item.clock !== void 0);
+  const low = timed.filter((item) => item.beforeClock != null && item.beforeClock < 60);
+  const over = timed.filter((item) => item.beforeClock >= 60);
+  const clockScore = accuracy(low), reference = accuracy(over);
+  const radar = [
+    { name: "Apertura", ...phaseMap[0] },
+    { name: "T\xE1ctica", count: tactical.length, score: accuracy(tactical) },
+    { name: "Finales", ...phaseMap[2] },
+    { name: "Tiempo", count: low.length, score: clockScore },
+    { name: "Defensa", count: defense.length, score: accuracy(defense) }
+  ];
+  const clockGames = records.filter((record) => record.metrics?.some((item) => item.clock != null));
+  const outcomes = clockGames.flatMap((record) => {
+    const sides = new Set(record.metrics.filter((item) => item.clock < 60 && item.clock != null).map((item) => item.side));
+    const result = pgnHeader(record.game.doc.sourcePgn || "", "Result");
+    if (!["1-0", "0-1", "1/2-1/2"].includes(result) || sides.size !== 1) return [];
+    return [result === ([...sides][0] === "w" ? "0-1" : "1-0")];
+  });
+  const bank = [...new Map(findings.filter((event) => event.loss >= 150).sort((a, b) => b.loss - a.loss).map((event) => [event.fen.split(" ").slice(0, 4).join(" "), event]).reverse()).values()].sort((a, b) => b.loss - a.loss);
+  return {
+    radar,
+    phaseMap,
+    bank,
+    clockGames: clockGames.length,
+    clockScore,
+    reference,
+    lowCount: low.length,
+    referenceCount: over.length,
+    knownLowResults: outcomes.length,
+    lowLosses: outcomes.filter(Boolean).length
+  };
 }
 
 // src/player-study.js
@@ -5743,7 +5886,7 @@ function score(result, sideToMove, player) {
   const ev = result?.evaluation;
   if (!ev || ev.bound !== "exact") return null;
   const numeric = ev.type === "mate" ? ev.value > 0 ? 1e3 : -1e3 : Math.max(-900, Math.min(900, ev.value));
-  return numeric * (sideToMove === player ? 1 : -1);
+  return numeric === 0 || sideToMove === player ? numeric : -numeric;
 }
 function lossOf(before, after, player) {
   const first = score(before, player, player);
@@ -5789,21 +5932,41 @@ async function analyzeStudyGame(game, analyze, onProgress, isPaused) {
     }
     return scans.get(key2);
   };
-  const findings = [];
+  const findings = [], metrics = [];
+  const clocks = clockData(game.doc.sourcePgn, moves2, game.doc.initialFen);
   for (let i = 0; i < moves2.length; i++) {
     if (isPaused()) return null;
     const move3 = moves2[i];
     if (!game.colors.includes(move3.color)) continue;
     onProgress(i + 1, moves2.length);
-    const first = await evaluate(move3.before, 8);
-    const second = await evaluate(move3.after, 8);
-    if (lossOf(first, second, move3.color) < 110) continue;
-    const before = await evaluate(move3.before, 12);
-    const after = await evaluate(move3.after, 12);
-    const loss = lossOf(before, after, move3.color);
+    let before = await evaluate(move3.before, 8);
+    let after = await evaluate(move3.after, 8);
+    if (lossOf(before, after, move3.color) >= 110) {
+      before = await evaluate(move3.before, 12);
+      after = await evaluate(move3.after, 12);
+    }
+    const position = new Chess(move3.before), phase = phaseOf(position);
+    const pre = score(before, move3.color, move3.color);
+    const post = score(after, move3.color === "w" ? "b" : "w", move3.color);
+    if (pre === null || post === null) continue;
+    const loss = pre - post;
+    const clock = clocks[i] || { clock: null, beforeClock: null, spent: null };
+    metrics.push({
+      ply: i + 1,
+      side: move3.color,
+      before: pre,
+      after: post,
+      phase,
+      ...clock,
+      tactical: before.evaluation.type === "mate" || Boolean(before.bestMove && (position.get(before.bestMove.slice(2, 4)) || position.inCheck()))
+    });
     if (loss < 125 || !before.bestMove) continue;
+    const kind = classify(move3, before, after);
     findings.push({
-      kind: classify(move3, before, after),
+      kind,
+      phase,
+      before: pre,
+      theme: exerciseTheme(move3, before, after, phase, kind),
       game: game.doc.title,
       ply: i + 1,
       loss,
@@ -5817,7 +5980,7 @@ async function analyzeStudyGame(game, analyze, onProgress, isPaused) {
       reply: pvToSan(move3.after, after.evaluation.pv)
     });
   }
-  return findings;
+  return { findings, metrics };
 }
 function summarize(records) {
   const groups = /* @__PURE__ */ new Map();
@@ -6312,24 +6475,406 @@ function trapCard(trap, practice, summary) {
     paragraph.textContent = text;
     section.append(paragraph);
   }
-  const button = document.createElement("button");
-  button.type = "button";
-  button.textContent = "Practicar en el tablero";
-  button.addEventListener("click", () => practice(trapDocument(trap), trap.ply));
-  section.append(button);
+  const button2 = document.createElement("button");
+  button2.type = "button";
+  button2.textContent = "Practicar en el tablero";
+  button2.addEventListener("click", () => practice(trapDocument(trap), trap.ply));
+  section.append(button2);
   return section;
+}
+
+// src/training-puzzles.js
+var themePuzzles = {
+  mateIn2: [
+    ["000Zo", "4r3/1k6/pp3r2/1b2P2p/3R1p2/P1R2P2/1P4PP/6K1 w - - 0 35", "e5f6 e8e1 g1f2 e1f1", 1363],
+    ["000hf", "r1bqk2r/pp1nbNp1/2p1p2p/8/2BP4/1PN3P1/P3QP1P/3R1RK1 b kq - 0 19", "e8f7 e2e6 f7f8 e6f7", 1395],
+    ["003Tx", "2r5/pR5p/5p1k/4p3/4r3/B4nPP/PP3P2/1K2R3 w - - 0 27", "e1e4 f3d2 b1a1 c8c1", 1510],
+    ["005Bm", "4rk2/p1q5/1p3Q1b/8/1p5N/2P1p3/P3P3/2K5 b - - 0 43", "c7f7 h4g6 f8g8 f6h8", 1476],
+    ["006pe", "r4r2/2q1NN2/4bQpk/2n4p/pp5P/8/1PP2PP1/2KR3R b - - 0 28", "e6f7 e7f5 h6h7 f6g7", 1560],
+    ["007ku", "r1bq3Q/1np2kp1/p5B1/1p1Pp3/1Pn2BP1/2b2P2/P3K3/R4N2 b - - 5 35", "f7g6 h8h5 g6f6 f4g5", 1687],
+    ["009BH", "3r2k1/6p1/4Q3/4B3/1p3P2/4PKP1/3q4/8 b - - 17 51", "g8h8 e6h6 h8g8 h6g7", 1507],
+    ["009wR", "1R2R3/p7/1p1k3p/1Pb5/P5p1/6P1/5rKP/8 w - - 6 41", "g2h1 f2f1 h1g2 f1g1", 1250],
+    ["009zR", "3r4/p1p2ppp/4k3/6Q1/5P2/4P3/Prqn2PP/3R1RK1 w - - 3 22", "g5d8 d2f3 g1h1 c2g2", 1620]
+  ],
+  hangingPiece: [
+    ["000lC", "3r3r/pQNk1ppp/1qnb1n2/1B6/8/8/PPP3PP/3R1R1K w - - 5 19", "d1d6 d7d6 b7b6 a7b6", 1325],
+    ["005wJ", "r3kb1r/ppqn1ppp/4pn2/1Q2Nb2/3P4/8/PP2PPPP/RNB1KB1R w KQkq - 4 9", "e5d7 c7c1", 1364],
+    ["00B8m", "3b4/3P4/pp2Pk2/5r2/P6p/3Q4/8/7K w - - 1 43", "d3f5 f6f5 e6e7 d8e7 d7d8q e7d8", 1275],
+    ["00Cqg", "2rr2k1/pp4bp/4qpp1/3Pp3/8/4Q2P/4B1P1/2RR3K b - - 0 26", "c8c1 d5e6 d8d1 e2d1 c1d1 h1h2", 1634],
+    ["00Er4", "r3k2r/p1bN2pp/2p1pp2/3p3b/3P1q2/2N4P/PPPQ1PP1/R3R1K1 w kq - 0 16", "e1e6 e8d7 d2f4 c7f4", 1200],
+    ["00IF1", "1k6/p1p5/P2p4/3P4/1PK2N1p/4P3/5r2/4B3 b - - 12 57", "f2f4 e3f4 h4h3 e1g3", 1274],
+    ["00InW", "8/2p5/pp1p4/3PnN2/PPP1Pp2/5P1p/5K1k/8 b - - 3 46", "e5f3 f2f3 h2g1 f3f4 h3h2 f5g3", 1439],
+    ["00LI0", "r2qk2r/pp1n1ppp/4pn2/3p2B1/1b1P4/2N1QN1P/PPb1BPP1/R4RK1 w kq - 0 12", "c3d5 f6d5 g5d8 d5e3", 1289],
+    ["00MTn", "2rqk2r/3n4/1p2p3/p3N2p/Q1PP2p1/P2BP3/3K1Pb1/R6R w k - 0 22", "h1h5 h8h5 d3g6 e8e7 a4d7 d8d7", 1335]
+  ],
+  pin: [
+    ["003S3", "r4k1r/pNqnppb1/6pn/2p3Np/7P/2P2Q2/PP3PP1/R1B1K2R b KQ - 2 15", "a8b8 g5e6 f8g8 e6c7", 1415],
+    ["005Bm", "4rk2/p1q5/1p3Q1b/8/1p5N/2P1p3/P3P3/2K5 b - - 0 43", "c7f7 h4g6 f8g8 f6h8", 1476],
+    ["006pe", "r4r2/2q1NN2/4bQpk/2n4p/pp5P/8/1PP2PP1/2KR3R b - - 0 28", "e6f7 e7f5 h6h7 f6g7", 1560],
+    ["00734", "rn3bk1/2rqp2p/2p3p1/3p1p2/3P1P1B/pP1BP3/P1Q2PRP/1KR5 b - - 0 26", "b8a6 d3f5 e7e6 f5g6", 1692],
+    ["009BH", "3r2k1/6p1/4Q3/4B3/1p3P2/4PKP1/3q4/8 b - - 17 51", "g8h8 e6h6 h8g8 h6g7", 1507],
+    ["00C8e", "8/5p1k/5Ppb/2p3P1/1p6/8/KB5Q/3q4 b - - 4 58", "d1a4 a2b1 a4d1 b2c1", 1559],
+    ["00F5G", "2rqrbk1/pp3ppp/4n3/3p1N2/3NnBQ1/2P4P/PP3PP1/R4RK1 b - - 14 22", "e6f4 f5h6 g8h8 h6f7", 1520],
+    ["00LNH", "1k2r3/pp2r2p/2pqbpp1/3n4/2BP1p2/5N1P/PPQB1PP1/1K1RR3 w - - 2 22", "c4b3 e6f5 c2f5 g6f5", 1622],
+    ["00M1q", "2r3k1/2r1q1p1/p3p1Q1/1p1p4/nP1P4/2P4R/P4PPP/2R3K1 b - - 0 30", "e7f6 g6h7 g8f7 h3f3 f6f3 g2f3", 1482]
+  ],
+  pawnEndgame: [
+    ["00DUp", "8/8/1p2k1p1/7p/P2KPp1P/5P2/8/8 w - - 8 66", "e4e5 g6g5 d4e4 g5h4", 1676],
+    ["00HGG", "8/pp6/2p1kpp1/3p4/3P1PPp/1P3K2/P1P4P/8 w - - 0 31", "g4g5 f6g5 f3g4 g5f4 g4f4 e6f6", 1682],
+    ["00QVZ", "8/7p/4K3/6p1/2k3P1/8/5P2/8 b - - 0 43", "c4d4 e6f5 h7h6 f5g6 d4e4 g6h6", 1468],
+    ["00VhV", "5k2/5P2/4K3/4p3/ppp1P3/2P1P3/PP4P1/8 w - - 2 50", "g2g4 a4a3 c3b4 a3b2", 1642],
+    ["00hpL", "8/7p/4K2P/8/4k3/8/8/8 b - - 4 53", "e4f4 e6f6 f4e4 f6g7 e4f5 g7h7 f5f6 h7g8", 1239],
+    ["00iQD", "8/8/8/3K2kp/8/2P1P3/8/8 w - - 0 50", "c3c4 h5h4 d5e4 g5g4 c4c5 h4h3 e4e5 h3h2 c5c6 h2h1q", 1557],
+    ["00kWx", "8/8/1p2pk2/p1p5/P1Pp2PK/1P1P4/8/8 w - - 1 42", "g4g5 f6g6 h4g4 e6e5", 1278],
+    ["00m6L", "8/8/k6p/p4p1P/p1p1pP2/K1P1P3/1P6/8 w - - 1 49", "a3a4 a6b6 a4a3 b6b5 a3a2 b5a4", 1353],
+    ["00qb9", "8/8/3k4/1p6/1Pp1K3/2P5/8/8 b - - 2 54", "d6c6 e4e5 c6d7 e5d5", 1746]
+  ],
+  rookEndgame: [
+    ["0008Q", "8/4R3/1p2P3/p4r2/P6p/1P3Pk1/4K3/8 w - - 1 64", "e7f7 f5e5 e2f1 e5e6", 1392],
+    ["002Uy", "8/8/1p6/k7/P1R5/1K5r/8/8 w - - 26 64", "c4c3 h3c3 b3c3 a5a4 c3b2 a4b4", 1573],
+    ["004d8", "8/4kr2/R2p4/1p1Pp1p1/5p2/3K1P2/PPP5/8 b - - 0 39", "g5g4 a6a7 e7f6 a7f7 f6f7 f3g4", 1608],
+    ["00Bg0", "8/3k4/3P1K2/p2R4/5r2/5P2/8/8 w - - 1 57", "d5f5 f4f5 f6f5 a5a4 f5e4 a4a3 e4d3 a3a2", 1653],
+    ["00G81", "3r4/5k2/p4Pp1/2pK2Pp/2R5/P7/8/8 w - - 7 51", "d5c5 d8c8 c5d4 c8c4 d4c4 h5h4", 1268],
+    ["00Gc5", "8/p1r2p2/4r3/2P1PK2/1P1R4/3R2pk/8/8 w - - 2 46", "d4g4 e6e5 f5e5 h3g4", 1600],
+    ["00Ivf", "8/2p4r/1p3k2/p2Pp1p1/P1P1RpP1/1P3P1r/4R1K1/8 w - - 7 46", "e4e5 h3h2 g2f1 h2h1 f1f2 h7h2", 1622],
+    ["00Kbj", "8/8/6p1/PR3p2/1P3k2/7P/r5P1/7K w - - 1 39", "h3h4 f4g3 b5d5 a2a1 d5d1 a1d1", 1481],
+    ["00Qlc", "8/5R2/P7/2p1r3/2Pp2k1/3K4/5p2/8 b - - 1 54", "e5f5 f7f5 g4f5 d3e2 f2f1q e2f1", 1667]
+  ],
+  kingsideAttack: [
+    ["001h8", "2r3k1/2r4p/4p1p1/1p1q1pP1/p1bP1P1Q/P6R/5B2/2R3K1 b - - 5 34", "c4e2 h4h7 c7h7 c1c8 g8g7 c8c7", 1715],
+    ["002Ua", "r4rk1/pp3ppp/3p1q2/P1P1p3/2B5/2B2n2/2P2P1P/R2Q1RK1 w - - 0 16", "g1h1 f6f4 d1f3 f4f3", 1669],
+    ["006di", "5rk1/p7/1p4p1/3pB1Nq/3P1Pn1/4n1P1/PP2Q2P/4R1K1 w - - 2 36", "e2f3 h5h2", 1500],
+    ["009aD", "r4k1r/pp3pp1/4p3/3pP1np/6bq/1PP2P2/P3B1PP/RN1Q1RK1 w - - 1 14", "f3g4 h5g4 e2g4 h4h2", 1426],
+    ["00BrZ", "r6r/pp2kb2/3p1p1Q/1N1Pp3/3bP3/P2B2P1/1P4PP/7K w - - 6 28", "h6d2 h8h2 h1h2 a8h8 d2h6 h8h6", 1380],
+    ["00F5G", "2rqrbk1/pp3ppp/4n3/3p1N2/3NnBQ1/2P4P/PP3PP1/R4RK1 b - - 14 22", "e6f4 f5h6 g8h8 h6f7", 1520],
+    ["00IMS", "1r4k1/r5q1/p2p1pP1/4pP2/2p1P2Q/2PbnBK1/P6R/2R5 b - - 7 35", "e3f5 e4f5 d3f5 f3d5", 1706],
+    ["00IUW", "8/Q1p1r1kp/5pp1/3P3r/4P3/2N2bPq/PPP2R1P/5RK1 w - - 3 23", "a7e3 h3g3 h2g3 h5h1", 1684],
+    ["00J1t", "r1qr3k/pp3pB1/1np1pb2/8/3P3P/2N2PR1/PP1Q2P1/2KR4 b - - 0 22", "f6g7 d2g5 d8g8 g5h5 g7h6 h5h6", 1678]
+  ],
+  opening: [
+    ["002Tf", "r3kbnr/ppp1qppp/2n5/3pP3/5B2/4PQ2/PPP2PPP/RN2KB1R w KQkq - 1 7", "f1b5 e7b4 b1c3 b4b2", 1561],
+    ["005wJ", "r3kb1r/ppqn1ppp/4pn2/1Q2Nb2/3P4/8/PP2PPPP/RNB1KB1R w KQkq - 4 9", "e5d7 c7c1", 1364],
+    ["008D5", "r1bqk2r/pp3ppp/4p2n/3pP3/1b1P1P2/2N5/PP4PP/R1BQKB1R b KQkq - 2 9", "h6f5 d1a4 c8d7 a4b4", 1446],
+    ["009FP", "r1b1k1nr/ppp2pbp/3ppqp1/8/2BnP3/N2P2QP/PPP2PP1/R1B1K2R b KQkq - 4 9", "e6e5 c1g5 f6g5 g3g5", 1235],
+    ["009Sz", "r2qkb1r/pp4pp/4pp2/3pNb1B/3nnP2/2N5/PPP3PP/R1B1QRK1 b kq - 1 11", "f5g6 e5g6 h7g6 h5g6", 1748],
+    ["00Bul", "rnbqk2r/pp3ppp/5n2/3pN3/2B5/2P5/P1PPQPPP/R1B1K2R b KQkq - 1 8", "d5c4 e5c6 c8e6 c6d8", 1271],
+    ["00JYV", "r2q1rk1/p1p1bppp/2pp1nb1/4p3/4P1PN/2NP3P/PPP2PK1/R1BQ1R2 b - - 4 11", "f6e4 h4g6 e4c3 g6e7 d8e7 b2c3", 1612],
+    ["00K8j", "r2q2kr/p4pp1/4b2p/n1Qn4/5B2/4P3/PP3PPP/2KR1BNR w - - 1 14", "f4c7 d8c7 c5c7 d5c7", 1380],
+    ["00MQl", "r1b2k1r/pp3ppp/2p5/2bp4/3N1Pnq/1B2B3/PPP3PP/RN1QR2K w - - 4 15", "d4f3 c5e3 f3h4 g4f2 h1g1 f2d1", 1735]
+  ],
+  middlegame: [
+    ["000c8", "6k1/Bp3pp1/p3p3/3pPn1p/N4P1q/P2Q1R1P/1P4PK/2r5 w - - 0 28", "a4c5 h4e1 f3f1 e1f1 d3f1 c1f1", 1692],
+    ["000hf", "r1bqk2r/pp1nbNp1/2p1p2p/8/2BP4/1PN3P1/P3QP1P/3R1RK1 b kq - 0 19", "e8f7 e2e6 f7f8 e6f7", 1395],
+    ["000lC", "3r3r/pQNk1ppp/1qnb1n2/1B6/8/8/PPP3PP/3R1R1K w - - 5 19", "d1d6 d7d6 b7b6 a7b6", 1325],
+    ["0017R", "r2qk2r/pp2ppbp/1n1p2p1/3Pn3/2P5/2NBBP1P/PP3P2/R2QK2R b KQkq - 0 12", "e5c4 d3c4 b6c4 d1a4 d8d7 a4c4", 1494],
+    ["001Fg", "2R2r1k/pQ4pp/5rp1/3B4/q2n4/7P/P4PP1/5RK1 w - - 3 30", "c8c7 d4e2 g1h2 a4f4 h2h1 e2g3 f2g3 f4f1", 1244],
+    ["001XA", "1qr2rk1/pb2bppp/8/8/2p1N3/P1Bn2P1/2Q2PBP/1R3RK1 b - - 3 23", "b8c7 b1b7 c7b7 e4f6 e7f6 g2b7", 1722],
+    ["001h8", "2r3k1/2r4p/4p1p1/1p1q1pP1/p1bP1P1Q/P6R/5B2/2R3K1 b - - 5 34", "c4e2 h4h7 c7h7 c1c8 g8g7 c8c7", 1715],
+    ["001wb", "r3k2r/pb1p1ppp/1b4q1/1Q2P3/8/2NP1Pn1/PP4PP/R1B2R1K w kq - 1 17", "h2g3 g6h5", 1259],
+    ["002KJ", "r3kb1r/ppq2ppp/4pn2/2Ppn3/1P4bP/2P2N2/P3BPP1/RNBQ1RK1 b kq - 2 10", "f8e7 f3e5 c7e5 e2g4", 1571]
+  ],
+  endgame: [
+    ["0000D", "5rk1/1p3ppp/pq3b2/8/8/1P1Q1N2/P4PPP/3R2K1 w - - 2 27", "d3d6 f8d8 d6d8 f6d8", 1433],
+    ["0008Q", "8/4R3/1p2P3/p4r2/P6p/1P3Pk1/4K3/8 w - - 1 64", "e7f7 f5e5 e2f1 e5e6", 1392],
+    ["000Pw", "6k1/5p1p/4p3/4q3/3nN3/2Q3P1/PP3P1P/6K1 w - - 2 37", "e4d2 d4e2 g1f1 e2c3", 1514],
+    ["000Sa", "2Q2bk1/5p1p/p5p1/2p3P1/2r1B3/7P/qPQ2P2/2K4R b - - 0 32", "c4c2 e4c2 a2a1 c2b1", 1565],
+    ["000Zo", "4r3/1k6/pp3r2/1b2P2p/3R1p2/P1R2P2/1P4PP/6K1 w - - 0 35", "e5f6 e8e1 g1f2 e1f1", 1363],
+    ["001cr", "8/3B2pp/p5k1/2p3P1/1p1p1K2/8/1P6/8 b - - 0 38", "c5c4 d7e8", 1531],
+    ["001m3", "7r/6k1/2b1pp2/8/P1N3p1/5nP1/4RP2/Q4K2 w - - 2 38", "e2e6 h8h1 f1e2 h1a1", 1455],
+    ["001xl", "8/4R1k1/p5pp/3B4/5q2/8/5P1P/6K1 b - - 5 40", "g7f6 e7f7 f6e5 f7f4", 1289],
+    ["002Uy", "8/8/1p6/k7/P1R5/1K5r/8/8 w - - 26 64", "c4c3 h3c3 b3c3 a5a4 c3b2 a4b4", 1573]
+  ],
+  short: [
+    ["0000D", "5rk1/1p3ppp/pq3b2/8/8/1P1Q1N2/P4PPP/3R2K1 w - - 2 27", "d3d6 f8d8 d6d8 f6d8", 1433],
+    ["0008Q", "8/4R3/1p2P3/p4r2/P6p/1P3Pk1/4K3/8 w - - 1 64", "e7f7 f5e5 e2f1 e5e6", 1392],
+    ["000Pw", "6k1/5p1p/4p3/4q3/3nN3/2Q3P1/PP3P1P/6K1 w - - 2 37", "e4d2 d4e2 g1f1 e2c3", 1514],
+    ["000Sa", "2Q2bk1/5p1p/p5p1/2p3P1/2r1B3/7P/qPQ2P2/2K4R b - - 0 32", "c4c2 e4c2 a2a1 c2b1", 1565],
+    ["000Zo", "4r3/1k6/pp3r2/1b2P2p/3R1p2/P1R2P2/1P4PP/6K1 w - - 0 35", "e5f6 e8e1 g1f2 e1f1", 1363],
+    ["000hf", "r1bqk2r/pp1nbNp1/2p1p2p/8/2BP4/1PN3P1/P3QP1P/3R1RK1 b kq - 0 19", "e8f7 e2e6 f7f8 e6f7", 1395],
+    ["000lC", "3r3r/pQNk1ppp/1qnb1n2/1B6/8/8/PPP3PP/3R1R1K w - - 5 19", "d1d6 d7d6 b7b6 a7b6", 1325],
+    ["001m3", "7r/6k1/2b1pp2/8/P1N3p1/5nP1/4RP2/Q4K2 w - - 2 38", "e2e6 h8h1 f1e2 h1a1", 1455],
+    ["001xl", "8/4R1k1/p5pp/3B4/5q2/8/5P1P/6K1 b - - 5 40", "g7f6 e7f7 f6e5 f7f4", 1289]
+  ]
+};
+
+// src/scanner-view.js
+function group(items, key2) {
+  const buckets = /* @__PURE__ */ Object.create(null);
+  for (const item of items) (buckets[key2(item)] ||= []).push(item);
+  return buckets;
+}
+function node2(tag, value2) {
+  const item = document.createElement(tag);
+  if (value2 !== void 0) item.textContent = value2;
+  return item;
+}
+function button(label, onClick) {
+  const item = node2("button", label);
+  item.type = "button";
+  item.addEventListener("click", onClick);
+  return item;
+}
+function table(labels, rows) {
+  const item = node2("table");
+  item.className = "scan-scores";
+  const header = item.createTHead().insertRow();
+  header.append(...labels.map((label) => node2("th", label)));
+  const body = item.createTBody();
+  for (const values of rows) body.insertRow().append(...values.map((value2) => node2("td", value2)));
+  return item;
+}
+function drawRadar(values) {
+  const canvas = node2("canvas");
+  canvas.width = 300;
+  canvas.height = 250;
+  canvas.className = "scan-radar";
+  canvas.setAttribute("aria-hidden", "true");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  const point = (index, radius) => {
+    const angle = index * Math.PI * 2 / 5 - Math.PI / 2;
+    return [150 + radius * Math.cos(angle), 125 + radius * Math.sin(angle)];
+  };
+  function polygon(points) {
+    ctx.beginPath();
+    points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.closePath();
+  }
+  ctx.strokeStyle = "#777268";
+  for (const radius of [21, 42, 63, 84]) {
+    polygon(values.map((_, i) => point(i, radius)));
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#e8e4db";
+  ctx.font = "13px sans-serif";
+  ctx.textAlign = "center";
+  values.forEach((item, i) => {
+    const [x, y] = point(i, 108);
+    ctx.fillText(item.name, x, y + 5);
+  });
+  if (values.every((item) => item.score !== null)) {
+    polygon(values.map((item, i) => point(i, 0.84 * item.score)));
+    ctx.fillStyle = "#a3bd7240";
+    ctx.fill();
+    ctx.strokeStyle = "#a3bd72";
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#a3bd72";
+  values.forEach((item, i) => {
+    if (item.score === null) return;
+    ctx.beginPath();
+    ctx.arc(...point(i, 0.84 * item.score), 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  return canvas;
+}
+var scoreText = (score2) => score2 == null ? "Datos insuficientes" : score2 + "/100";
+var themeOf = (event) => event.theme || (event.kind === "mate" ? "mate" : "short");
+var eventLabel = (event) => moveLabel(event.fen, event.move || "");
+var eventId = (event) => [event.fen, event.best].join(" ");
+function diagnosticRows(records, stats) {
+  const patterns = /* @__PURE__ */ new Map();
+  for (const [index, record] of records.entries()) {
+    for (const event of record.findings) {
+      const phase = event.phase || "middle";
+      const theme = themeOf(event);
+      const opening = phase === "opening" ? pgnHeader(record.game.doc.sourcePgn || "", "Opening") || record.game.doc.moves.slice(0, 2).join(" ") : "";
+      const key2 = JSON.stringify([theme, phase, event.color, opening]);
+      const pattern = patterns.get(key2) || { theme, phase, opening, side: event.color, items: [], games: /* @__PURE__ */ new Set(), impact: 0 };
+      pattern.items.push(event);
+      pattern.games.add(index);
+      pattern.impact += event.loss;
+      patterns.set(key2, pattern);
+    }
+  }
+  const rows = [...patterns.values()].sort((a, b) => b.games.size - a.games.size || b.impact - a.impact).map((pattern) => {
+    const side = pattern.side === "w" ? "blancas" : "negras";
+    const cases = pattern.items.length;
+    const text = `${themes[pattern.theme]} con ${side} \xB7 ${pattern.games.size} de ${records.length} partidas del grupo, ${cases} ${cases === 1 ? "posici\xF3n" : "posiciones"}${pattern.opening ? " \xB7 " + pattern.opening : ""}.`;
+    return { text, items: pattern.items.sort((a, b) => b.loss - a.loss) };
+  });
+  if (stats.knownLowResults >= 5 && stats.lowLosses >= 3 && stats.lowLosses * 2 >= stats.knownLowResults) {
+    const text = `Con menos de un minuto: ${stats.lowLosses} derrotas de ${stats.knownLowResults} partidas con resultado y color identificados.`;
+    const items = records.flatMap((record) => {
+      const times = new Set((record.metrics || []).filter((item) => item.beforeClock != null && item.beforeClock < 60).map((item) => item.ply));
+      return record.findings.filter((event) => times.has(event.ply));
+    }).sort((a, b) => b.loss - a.loss);
+    rows.splice(Math.min(rows.length, 2), 0, { text, items });
+  }
+  return rows.slice(0, 3);
+}
+function thematicPuzzle([id, fen, uci]) {
+  const chess = new Chess(fen);
+  const [setup, ...line] = uci.split(" ");
+  chess.move({ from: setup.slice(0, 2), to: setup.slice(2, 4), promotion: setup[4] });
+  return {
+    id,
+    fen: chess.fen(),
+    best: line[0],
+    line,
+    color: chess.turn(),
+    game: "Puzle de Lichess \xB7 " + id,
+    solution: pvToSan(chess.fen(), line)
+  };
+}
+function styleKey(event, attempts) {
+  const previous = attempts[eventId(event)];
+  return previous?.solved ? 2 : previous ? 0 : 1;
+}
+function renderScanner({ job, report, training, week, openExercise, openReplay, progress }) {
+  training.replaceChildren();
+  week.replaceChildren();
+  const groups = group(job.records, (record) => record.game.rhythm);
+  for (const [rhythm, records] of Object.entries(groups)) {
+    const stats2 = scannerSummary(records);
+    const section = node2("section");
+    section.className = "study-group";
+    section.append(
+      node2("h3", rhythms[rhythm] + " \xB7 " + records.length + " partidas"),
+      drawRadar(stats2.radar),
+      table(["\xC1rea", "Puntuaci\xF3n", "Jugadas"], stats2.radar.map((row) => [row.name, scoreText(row.score), row.count]))
+    );
+    if (!records.some((record) => record.metrics)) {
+      section.append(node2("p", "Este estudio guardado conserva sus ejercicios. Escan\xE9alo de nuevo para calcular el radar y las fases."));
+    }
+    section.append(node2("p", `Reloj disponible en ${stats2.clockGames} partidas. Precisi\xF3n con menos de un minuto: ${scoreText(stats2.clockScore)} (${stats2.lowCount} jugadas). Con un minuto o m\xE1s: ${scoreText(stats2.reference)} (${stats2.referenceCount} jugadas).`));
+    section.append(node2("h4", "Mapa de fases"), table(["Fase", "Precisi\xF3n", "Jugadas", "P\xE9rdidas sostenidas"], stats2.phaseMap.map((row) => [phases[row.key], scoreText(row.score), row.count, row.swings])));
+    section.append(node2("h4", job.role === "rival" ? "Tres debilidades del rival" : "Tres fugas de ELO"));
+    const rows = diagnosticRows(records, stats2);
+    if (!rows.length) section.append(node2("p", "El motor no encontr\xF3 patrones de p\xE9rdida suficientemente claros."));
+    for (const row of rows) {
+      const details = node2("details");
+      details.append(node2("summary", row.text));
+      for (const event of row.items.slice(0, 5)) {
+        const text = `${event.game} \xB7 ${eventLabel(event)} \xB7 \u2212${(event.loss / 100).toFixed(2)}`;
+        if (job.role === "rival") {
+          const game = records.find((record) => record.findings.includes(event))?.game;
+          if (game) details.append(button(text, () => openReplay(game, event.ply)));
+        } else details.append(button(text, () => openExercise(event)));
+      }
+      section.append(details);
+    }
+    report.append(section);
+  }
+  if (job.role !== "profile") {
+    training.append(node2("p", "Las posiciones de pr\xE1ctica de este rival est\xE1n en Conclusiones."));
+    week.append(node2("p", "Para generar un plan semanal, escanea tus partidas con Mi perfil."));
+    return;
+  }
+  const stats = scannerSummary(job.records);
+  const bank = stats.bank;
+  const attempts = job.attempts || {};
+  const ordered = [...bank].sort((a, b) => styleKey(a, attempts) - styleKey(b, attempts) || b.loss - a.loss);
+  const list = node2("div");
+  const themeSelect = node2("select");
+  themeSelect.setAttribute("aria-label", "Filtrar puzles por tema");
+  themeSelect.append(new Option("Todos los temas", ""), ...[...new Set(bank.map(themeOf))].map((key2) => new Option(themes[key2], key2)));
+  function refreshBank() {
+    list.replaceChildren(...ordered.filter((event) => !themeSelect.value || themeOf(event) === themeSelect.value).map((event) => button(
+      `${themes[themeOf(event)]} \xB7 ${event.game} \xB7 ${eventLabel(event)}${attempts[eventId(event)]?.solved ? " \xB7 Resuelto" : ""}`,
+      () => openExercise(event)
+    )));
+  }
+  themeSelect.addEventListener("change", refreshBank);
+  training.append(node2("h3", `Puzles de tus partidas (${bank.length})`), themeSelect, list);
+  if (!bank.length) training.append(node2("p", "La muestra no contiene ca\xEDdas verificadas de al menos 1,5 peones."));
+  refreshBank();
+  const counts = group(bank, themeOf);
+  const theme = Object.keys(counts).sort((a, b) => counts[b].length - counts[a].length)[0] || "short";
+  const focus = themePuzzles[theme] || themePuzzles.short;
+  const opening = bank.filter((event) => event.phase === "opening");
+  const daySelect = node2("select");
+  daySelect.setAttribute("aria-label", "D\xEDa del plan semanal");
+  daySelect.append(...Array.from({ length: 7 }, (_, i) => new Option("D\xEDa " + (i + 1), String(i))));
+  daySelect.value = String(job.day || 0);
+  const plan = node2("div");
+  function refreshPlan() {
+    const day = Number(daySelect.value);
+    plan.replaceChildren();
+    const warm = node2("section");
+    warm.append(node2("h4", "5 min \xB7 Calentamiento"));
+    const fresh = ordered.filter((event) => !attempts[eventId(event)]?.solved);
+    const source = fresh.length ? fresh : ordered;
+    if (source.length) {
+      const offset = day * 5 % source.length;
+      for (const event of [...source.slice(offset), ...source.slice(0, offset)].slice(0, 5)) {
+        warm.append(button(themes[themeOf(event)] + " \xB7 " + eventLabel(event), () => openExercise(event)));
+      }
+    } else warm.append(node2("p", "Todav\xEDa no hay puzles propios para este bloque."));
+    const reinforcement = node2("section");
+    reinforcement.append(node2("h4", "5 min \xB7 Refuerzo \xB7 " + themes[theme]));
+    const puzzle = thematicPuzzle(focus[day % focus.length]);
+    reinforcement.append(button("Resolver puzle", () => openExercise(puzzle)));
+    const credit2 = node2("a", "Original en Lichess");
+    credit2.href = "https://lichess.org/training/" + puzzle.id;
+    credit2.target = "_blank";
+    credit2.rel = "noopener noreferrer";
+    reinforcement.append(" ", credit2);
+    const review = node2("section");
+    review.append(node2("h4", "5 min \xB7 Correcci\xF3n de apertura"));
+    if (opening.length) {
+      const event = opening[day % opening.length];
+      const record = job.records.find((record2) => record2.findings.includes(event));
+      review.append(button(event.game + " \xB7 " + eventLabel(event), () => openExercise(event)));
+      if (record) review.append(button("Ver c\xF3mo se lleg\xF3 a la posici\xF3n", () => openReplay(record.game, event.ply - 1)));
+    } else review.append(node2("p", "El an\xE1lisis no encontr\xF3 una p\xE9rdida de apertura de al menos 1,5 peones."));
+    for (const [index, block] of [warm, reinforcement, review].entries()) {
+      const key2 = day + ":" + index;
+      const mark = node2("input");
+      mark.type = "checkbox";
+      mark.checked = Boolean(job.week?.[key2]);
+      mark.addEventListener("change", () => {
+        (job.week ||= {})[key2] = mark.checked;
+        progress();
+      });
+      const label = node2("label");
+      label.append(mark, " Bloque completado");
+      block.append(label);
+    }
+    plan.append(warm, reinforcement, review);
+  }
+  daySelect.addEventListener("change", () => {
+    job.day = Number(daySelect.value);
+    refreshPlan();
+  });
+  week.append(node2("h3", "15 minutos al d\xEDa"), daySelect, plan);
+  refreshPlan();
+}
+function recordAttempt(job, event, correct) {
+  if (!job || !event || job.role !== "profile") return;
+  const id = eventId(event);
+  const attempts = job.attempts ||= {};
+  attempts[id] = { solved: Boolean(correct || attempts[id]?.solved) };
 }
 
 // src/study-view.js
 var $ = (id) => document.getElementById(id);
-function setupStudy({ load, save, showError: showError2, openPractice: openPractice2 }) {
+function setupStudy({ load, save, updateSaved, showError: showError2, openPractice: openPractice2, choosePromotion: choosePromotion2, startRevenge: startRevenge2 }) {
   const dialog = $("study-dialog"), form = $("study-form"), player = $("study-player");
   const start5 = $("study-start"), pause = $("study-pause"), status = $("study-status");
   const progress = $("study-progress"), results = $("study-results");
   const onlyBatch = $("study-only-batch"), role = $("study-role"), single = $("study-single");
   const color = $("study-color"), rhythm = $("study-rhythm"), limit = $("study-limit");
   const saveButton = $("study-save");
-  const filters = [player, role, rhythm, color, limit, onlyBatch, single];
+  const from = $("scan-from"), to = $("scan-to");
+  const filters = [player, role, rhythm, color, limit, onlyBatch, single, from, to];
+  const tabs = [...dialog.querySelectorAll("[data-scan-tab]")];
+  const panels = [...dialog.querySelectorAll("[data-scan-panel]")];
+  const training = $("scan-training"), week = $("scan-week");
+  function switchTab(key2) {
+    for (const tab of tabs) tab.setAttribute("aria-pressed", String(tab.dataset.scanTab === key2));
+    for (const panel of panels) panel.hidden = panel.dataset.scanPanel !== key2;
+  }
+  for (const tab of tabs) tab.addEventListener("click", () => switchTab(tab.dataset.scanTab));
+  for (const [id, source] of [["scan-import-online", "online-open"], ["scan-import-pgn", "import-open"]]) {
+    $(id).addEventListener("click", () => {
+      dialog.close();
+      $(source).click();
+    });
+  }
+  function refreshTabs() {
+    for (const tab of tabs) tab.disabled = tab.dataset.scanTab !== "sample" && !job?.records.length;
+  }
   const exercise = $("study-exercise"), replay = $("study-replay");
   let replayBoard, replayGame, replayPly;
   function renderReplay() {
@@ -6356,9 +6901,9 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
     const orientation = replayGame.colors[0] === "b" ? "black" : "white";
     openPractice2({ ...replayGame.doc, orientation }, replayPly);
   });
-  function openReplay(game) {
+  function openReplay(game, ply = 0) {
     replayGame = game;
-    replayPly = 0;
+    replayPly = Math.min(ply, game.doc.moves.length);
     $("study-replay-title").textContent = `${game.white} \u2013 ${game.black}`;
     replay.showModal();
     replayBoard ||= Chessground($("study-replay-board"), { viewOnly: true, drawable: { enabled: false } });
@@ -6370,7 +6915,7 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
     const entries2 = await load();
     profiles = entries2.filter((entry) => entry.role === "profile");
     library = entries2.filter((entry) => !entry.role).map(studyGame).filter(Boolean);
-    batch = games?.map(studyGame) || saved?.records.map((record) => record.game);
+    batch = games?.map(studyGame) || saved?.sample || saved?.records.map((record) => record.game);
     skipped = omitted;
     const users = /* @__PURE__ */ new Map();
     for (const game of batch || library) {
@@ -6384,17 +6929,23 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
     rhythm.value = saved?.rhythm || "all";
     role.value = saved?.role || "";
     setColorOptions(saved?.color);
-    limit.value = "all";
+    limit.value = saved?.sample ? saved.filters?.limit || "all" : saved ? "all" : "20";
+    from.value = saved?.filters?.from || "";
+    to.value = saved?.filters?.to || "";
     single.value = "";
+    switchTab("sample");
     job = void 0;
     updateSelection();
     if (saved) {
+      single.value = saved.filters?.single || "";
       job = { ...saved, key: selectionKey(selection()), saved: true };
       renderReport();
       progress.hidden = false;
-      showProgress(saved.records.length, saved.records.length, "Estudio guardado.");
-      start5.textContent = "Analizar de nuevo";
+      showProgress(saved.records.length, Math.max(saved.records.length, selection().length), "Estudio guardado.");
+      start5.textContent = saved.records.length < selection().length ? "Continuar an\xE1lisis" : "Analizar de nuevo";
       $("study-exit").textContent = "Cerrar estudio";
+      refreshTabs();
+      switchTab("report");
     }
     dialog.showModal();
   }
@@ -6408,7 +6959,11 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
   function selection(individual = true) {
     const candidates = batch ? onlyBatch.checked ? batch : [...batch, ...library] : library;
     const side = role.value === "rival" ? color.value === "w" ? "b" : "w" : color.value;
-    const games = selectGames(candidates, player.value, side, rhythm.value, Number(limit.value) || Infinity);
+    const withinDates = candidates.filter((game) => {
+      const date = game.date.replaceAll(".", "-");
+      return (!from.value || date >= from.value) && (!to.value || date && date <= to.value);
+    });
+    const games = selectGames(withinDates, player.value, side, rhythm.value, Number(limit.value) || Infinity);
     return individual && single.value ? games.filter((game) => game.key === single.value) : games;
   }
   const selectionKey = (games) => JSON.stringify([
@@ -6422,6 +6977,8 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
     single.replaceChildren(new Option("Conjunto de partidas", ""), ...available.map((game) => new Option(`${game.white} \u2013 ${game.black} \xB7 ${game.date || "Sin fecha"} \xB7 ${game.colors[0] === "w" ? "Blancas" : "Negras"}`, game.key)));
     if (available.some((game) => game.key === selected)) single.value = selected;
     const games = selection();
+    const withClock = games.filter((game) => /\[%clk\s+\d+:\d+:\d/.test(game.doc.sourcePgn || "")).length;
+    $("scan-preview").textContent = `${withClock} de ${games.length} partidas incluyen reloj en el PGN.`;
     if (job?.key !== selectionKey(games)) job = void 0;
     status.textContent = games.length ? `${games.length} partidas seleccionadas.${skipped ? ` ${skipped} PGN omitidos.` : ""}` : "No hay partidas con jugador y jugadas para esos filtros.";
     progress.hidden = !job;
@@ -6429,8 +6986,9 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
     results.replaceChildren();
     if (job?.records.length) renderReport();
     start5.disabled = !role.value || !games.length;
-    start5.textContent = !job ? "Analizar partidas" : job.records.length < games.length ? "Continuar an\xE1lisis" : "Analizar de nuevo";
+    start5.textContent = !job ? "Escanear" : job.records.length < games.length ? "Continuar an\xE1lisis" : "Analizar de nuevo";
     updateSave();
+    refreshTabs();
   }
   function updateSave() {
     saveButton.hidden = !job?.records.length || Boolean(job.saved);
@@ -6441,18 +6999,24 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
     const current = job;
     saveButton.disabled = true;
     try {
-      const { role: role2, player: player2, name, records, plans, color: color2, rhythm: rhythm2 } = current;
+      const { role: role2, player: player2, name, records, plans, color: color2, rhythm: rhythm2, attempts, week: week2 } = current;
+      const id = current.id || "study:" + crypto.randomUUID();
       await save({
-        id: "study:" + crypto.randomUUID(),
+        id,
         role: role2,
         player: player2,
         name,
         records,
+        attempts,
+        week: week2,
         plans,
         color: color2,
         rhythm: rhythm2,
+        sample: selection(),
+        filters: { from: from.value, to: to.value, limit: limit.value, single: single.value },
         updatedAt: (/* @__PURE__ */ new Date()).toISOString()
       });
+      current.id = id;
       current.saved = true;
       if (job === current) {
         updateSave();
@@ -6469,12 +7033,17 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
     progress.value = done;
     status.textContent = `${done} de ${total} partidas analizadas.${detail ? " " + detail : ""}`;
   }
+  function saveProgress() {
+    if (!job?.saved || !job.id) return;
+    updateSaved(job.id, { attempts: { ...job.attempts }, week: { ...job.week } }).catch(showError2);
+  }
   function renderReport() {
     results.replaceChildren();
     const note = document.createElement("p");
     note.textContent = "Estimaci\xF3n de Stockfish. Los patrones estrat\xE9gicos son pistas para revisar. Las comparaciones usan partidas del mismo ritmo; si falta la fecha PGN, ese grupo no muestra evoluci\xF3n.";
     results.append(note);
     const rival = job.role === "rival";
+    renderScanner({ job, report: results, training, week, openExercise, openReplay, progress: saveProgress });
     if (rival) renderPreparation();
     const evidence = document.createElement("details");
     const summary = document.createElement("summary");
@@ -6491,23 +7060,23 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
       evidence.append(line);
     }
     results.append(evidence);
-    for (const group of summarize(job.records)) {
+    for (const group2 of summarize(job.records)) {
       const section = document.createElement("section");
       section.className = "study-group";
       const title = document.createElement("h3");
-      title.textContent = `${rhythms[group.rhythm]} \xB7 ${group.count} partidas`;
+      title.textContent = `${rhythms[group2.rhythm]} \xB7 ${group2.count} partidas`;
       section.append(title);
-      if (!group.patterns.length) {
+      if (!group2.patterns.length) {
         const empty = document.createElement("p");
         empty.textContent = "El an\xE1lisis no encontr\xF3 p\xE9rdidas de evaluaci\xF3n suficientemente claras.";
         section.append(empty);
       }
-      for (const pattern of group.patterns) {
+      for (const pattern of group2.patterns) {
         const lesson = lessons[pattern.kind], heading = document.createElement("h4");
         heading.textContent = rival ? "Debilidad observada \xB7 " + lesson.title : lesson.title;
         const stats = document.createElement("p");
-        stats.textContent = `${pattern.count} de ${group.count} partidas \xB7 ${pattern.total} casos.`;
-        if (pattern.priorTotal && group.chronological && group.rhythm !== "unknown") {
+        stats.textContent = `${pattern.count} de ${group2.count} partidas \xB7 ${pattern.total} casos.`;
+        if (pattern.priorTotal && group2.chronological && group2.rhythm !== "unknown") {
           stats.textContent += ` \xDAltimas 10: ${pattern.recent}/10. Anteriores: ${pattern.prior}/${pattern.priorTotal}.`;
         }
         const tip = document.createElement("p");
@@ -6520,8 +7089,8 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
         }[pattern.kind] : lesson.tip;
         section.append(heading, stats, tip);
         for (const event of pattern.examples) {
-          const button = document.createElement("button");
-          button.type = "button";
+          const button2 = document.createElement("button");
+          button2.type = "button";
           if (rival && !event.replyBest) continue;
           const exerciseEvent = rival ? {
             ...event,
@@ -6533,9 +7102,9 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
             afterRivalMove: true
           } : event;
           const number = event.fen.split(" ")[5];
-          button.textContent = `${event.game} \xB7 jugada ${number} con ${event.color === "w" ? "blancas" : "negras"}`;
-          button.addEventListener("click", () => openExercise(exerciseEvent));
-          section.append(button);
+          button2.textContent = `${event.game} \xB7 jugada ${number} con ${event.color === "w" ? "blancas" : "negras"}`;
+          button2.addEventListener("click", () => openExercise(exerciseEvent));
+          section.append(button2);
         }
       }
       results.append(section);
@@ -6588,8 +7157,76 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
       check: position.inCheck(),
       lastMove: void 0,
       turnColor: position.turn() === "w" ? "white" : "black",
-      movable: { free: false, color: solved ? void 0 : orientation, dests: legalDests(position) }
+      movable: { free: false, color: solved || checking ? void 0 : orientation, dests: legalDests(position) }
     });
+  }
+  let exerciseSerial = 0, exerciseStep = 0, checking;
+  const uciMove = (chess, uci) => chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+  async function tryExerciseMove(from2, to2) {
+    if (solved || checking) {
+      renderExercise();
+      return;
+    }
+    const serial = exerciseSerial;
+    const candidates = position.moves({ verbose: true }).filter((move4) => move4.from === from2 && move4.to === to2);
+    if (!candidates.length) {
+      renderExercise();
+      return;
+    }
+    let promotion;
+    if (candidates.length > 1) {
+      renderExercise();
+      promotion = await choosePromotion2();
+      if (!promotion || serial !== exerciseSerial) return;
+    }
+    const move3 = position.move({ from: from2, to: to2, promotion });
+    const feedback = $("study-exercise-feedback");
+    if (example2.line) {
+      if (move3.lan !== example2.line[exerciseStep]) {
+        position.undo();
+        feedback.textContent = "Prueba otra jugada.";
+        recordAttempt(job, example2, false);
+      } else {
+        exerciseStep++;
+        if (example2.line[exerciseStep]) uciMove(position, example2.line[exerciseStep++]);
+        solved = exerciseStep === example2.line.length;
+        feedback.textContent = solved ? "Puzle resuelto." : "Buena jugada. Contin\xFAa.";
+        if (solved) recordAttempt(job, example2, true);
+      }
+    } else {
+      let correct = move3.lan === example2.best;
+      if (!correct && example2.best) {
+        const worker = new LocalEngine({ options: { Hash: 16 } });
+        checking = worker;
+        feedback.textContent = "Stockfish est\xE1 comprobando esta alternativa\u2026";
+        renderExercise();
+        try {
+          const best = uciMove(new Chess(example2.fen), example2.best);
+          const evaluate = async (fen) => {
+            const chess = new Chess(fen);
+            if (chess.isCheckmate()) return 1e4;
+            if (chess.isDraw()) return 0;
+            const ev = (await worker.analyze(fen, 12)).evaluation;
+            if (ev?.bound !== "exact") return null;
+            return ev.type === "cp" ? -ev.value : -Math.sign(ev.value) * (1e4 - Math.abs(ev.value));
+          };
+          const expected = await evaluate(best.after);
+          const alternative = await evaluate(move3.after);
+          correct = expected !== null && alternative !== null && (expected > 9e3 ? alternative >= expected : alternative >= expected - 25);
+        } catch {
+        } finally {
+          worker.destroy();
+          if (checking === worker) checking = void 0;
+        }
+      }
+      if (serial !== exerciseSerial) return;
+      solved = correct;
+      if (!correct) position.undo();
+      feedback.textContent = correct ? `${move3.san} \xB7 Buena jugada.` : `${move3.san} \xB7 Prueba otra continuaci\xF3n o consulta la soluci\xF3n.`;
+      recordAttempt(job, example2, correct);
+    }
+    saveProgress();
+    renderExercise();
   }
   function openExercise(event) {
     example2 = event;
@@ -6599,24 +7236,17 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
         coordinates: true,
         drawable: { enabled: false },
         premovable: { enabled: false },
-        movable: { events: { after: (from, to) => {
-          const candidates = position.moves({ verbose: true }).filter((move4) => move4.from === from && move4.to === to);
-          if (!candidates.length || solved) return;
-          if (candidates.some((move4) => move4.promotion)) {
-            $("study-exercise-feedback").textContent = "Puedes consultar la variante del motor para ver la pieza de promoci\xF3n.";
-            renderExercise();
-            return;
-          }
-          const move3 = position.move({ from, to });
-          solved = true;
-          $("study-exercise-feedback").textContent = move3.lan === example2.best ? `${move3.san}: coincide con la primera opci\xF3n de Stockfish.` : `Has probado ${move3.san}. Consulta la variante del motor para comparar las ideas.`;
-          renderExercise();
-        } } }
+        movable: { events: { after: (from2, to2) => tryExerciseMove(from2, to2).catch(showError2) } }
       });
     }
     resetExercise();
   }
   function resetExercise() {
+    exerciseSerial++;
+    checking?.destroy();
+    checking = void 0;
+    exerciseStep = 0;
+    $("scan-revenge").hidden = !(example2.before >= 150 && job?.role === "profile");
     position = new Chess(example2.fen);
     solved = false;
     $("study-exercise-title").textContent = example2.game;
@@ -6632,7 +7262,7 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
   $("explore-exercise").addEventListener("click", () => {
     const chess = new Chess(example2.fen);
     const moves2 = [];
-    if (solved) {
+    if (position.history().length) {
       moves2.push(...position.history());
     } else if (!$("study-exercise-solution").hidden && example2.best) {
       const { best } = example2;
@@ -6644,11 +7274,26 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
       initialFen: example2.fen,
       orientation: example2.color === "w" ? "white" : "black",
       moves: moves2
-    }, solved ? moves2.length : 0);
+    }, position.history().length);
+  });
+  $("scan-revenge").addEventListener("click", () => startRevenge2(example2, () => {
+    exercise.close();
+    dialog.close();
+  }));
+  exercise.addEventListener("close", () => {
+    exerciseSerial++;
+    checking?.destroy();
+    checking = void 0;
+    if (dialog.open && job?.records.length) renderReport();
   });
   $("study-exercise-reset").addEventListener("click", resetExercise);
   $("study-exercise-reveal").addEventListener("click", () => {
     const solution = $("study-exercise-solution");
+    if (example2.line) {
+      solution.textContent = example2.solution;
+      solution.hidden = false;
+      return;
+    }
     solution.textContent = `En la partida: ${example2.move}${example2.reply ? " \xB7 Respuesta y continuaci\xF3n: " + example2.reply : ""}. Sugerencia de Stockfish: ${example2.solution || pvToSan(example2.fen, [example2.best])}.`;
     solution.hidden = false;
   });
@@ -6675,14 +7320,17 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
     start5.disabled = true;
     pause.disabled = false;
     for (const filter of filters) filter.disabled = true;
+    $("scan-import-online").disabled = $("scan-import-pgn").disabled = true;
+    switchTab("sample");
     results.replaceChildren();
+    for (const tab of tabs) tab.disabled = tab.dataset.scanTab !== "sample";
     progress.hidden = false;
     showProgress(job.records.length, games.length, "Preparando Stockfish\u2026");
     let message = "";
     try {
       for (const game of games.slice(job.records.length)) {
         if (engine2 !== worker) break;
-        const findings = await analyzeStudyGame(
+        const analysis = await analyzeStudyGame(
           game,
           (fen, depth) => worker.analyze(fen, depth),
           (ply, total) => {
@@ -6690,8 +7338,8 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
           },
           () => engine2 !== worker
         );
-        if (!findings || engine2 !== worker) break;
-        job.records.push({ game, findings });
+        if (!analysis || engine2 !== worker) break;
+        job.records.push({ game, ...analysis });
         showProgress(job.records.length, games.length);
       }
       if (job.role === "rival" && engine2 === worker) {
@@ -6718,6 +7366,7 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
       engine2 = void 0;
       running = false;
       for (const filter of filters) filter.disabled = false;
+      $("scan-import-online").disabled = $("scan-import-pgn").disabled = false;
       pause.disabled = true;
       if (!dialog.open) {
         job = void 0;
@@ -6726,7 +7375,22 @@ function setupStudy({ load, save, showError: showError2, openPractice: openPract
       start5.disabled = false;
       start5.textContent = job.records.length < games.length ? "Continuar an\xE1lisis" : "Analizar de nuevo";
       showProgress(job.records.length, games.length, message || (paused ? "An\xE1lisis en pausa. Se conservan las partidas completadas mientras esta pesta\xF1a siga abierta." : "An\xE1lisis terminado."));
-      if (job.records.length) renderReport();
+      if (job.records.length) {
+        if (job.saved && job.id) {
+          const current = job;
+          try {
+            await updateSaved(current.id, { records: current.records, plans: current.plans });
+          } catch (error) {
+            current.saved = false;
+            showError2(error);
+          }
+        }
+        if (dialog.open && job) {
+          renderReport();
+          switchTab("report");
+        }
+      }
+      refreshTabs();
       updateSave();
     }
   });
@@ -6752,11 +7416,11 @@ function setupVariations(get, choosePromotion2, showError2) {
   const dialog = get("variation-dialog");
   const choices = get("variation-choices");
   const saveButton = get("variation-save");
-  let root, node2, origin2, board2, orientation, save, trail, canSave;
+  let root, node3, origin2, board2, orientation, save, trail, canSave;
   function render5() {
-    const chess = new Chess(node2.fen);
+    const chess = new Chess(node3.fen);
     const color = chess.turn() === "w" ? "white" : "black";
-    const last = node2.parent ? new Chess(node2.parent.fen).move(node2.san) : null;
+    const last = node3.parent ? new Chess(node3.parent.fen).move(node3.san) : null;
     board2.set({
       fen: chess.fen(),
       orientation,
@@ -6765,45 +7429,45 @@ function setupVariations(get, choosePromotion2, showError2) {
       lastMove: last ? [last.from, last.to] : void 0,
       movable: { color, free: false, dests: legalDests(chess) }
     });
-    get("variation-line").textContent = lineText(root.fen, nodeMoves(node2)) || "Posici\xF3n inicial";
-    get("variation-comment").textContent = node2.comment;
-    get("variation-prev").disabled = !node2.parent;
-    get("variation-next").disabled = !node2.children.length;
-    get("variation-reset").disabled = node2 === origin2;
-    saveButton.hidden = !save || !canSave(nodeMoves(node2));
-    choices.replaceChildren(...node2.children.map((child) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = child.san;
-      button.addEventListener("click", () => visit(child));
-      return button;
+    get("variation-line").textContent = lineText(root.fen, nodeMoves(node3)) || "Posici\xF3n inicial";
+    get("variation-comment").textContent = node3.comment;
+    get("variation-prev").disabled = !node3.parent;
+    get("variation-next").disabled = !node3.children.length;
+    get("variation-reset").disabled = node3 === origin2;
+    saveButton.hidden = !save || !canSave(nodeMoves(node3));
+    choices.replaceChildren(...node3.children.map((child) => {
+      const button2 = document.createElement("button");
+      button2.type = "button";
+      button2.textContent = child.san;
+      button2.addEventListener("click", () => visit(child));
+      return button2;
     }));
   }
   function visit(next) {
-    if (next.parent === node2) trail.set(node2, next);
-    node2 = next;
+    if (next.parent === node3) trail.set(node3, next);
+    node3 = next;
     render5();
   }
   async function play(from, to) {
-    const candidates = new Chess(node2.fen).moves({ verbose: true }).filter((move3) => move3.from === from && move3.to === to);
+    const candidates = new Chess(node3.fen).moves({ verbose: true }).filter((move3) => move3.from === from && move3.to === to);
     if (candidates.length > 1) {
       render5();
       const promotion = await choosePromotion2();
-      if (promotion) visit(addMove2(node2, { from, to, promotion }));
-    } else if (candidates.length) visit(addMove2(node2, candidates[0].san));
+      if (promotion) visit(addMove2(node3, { from, to, promotion }));
+    } else if (candidates.length) visit(addMove2(node3, candidates[0].san));
     else render5();
   }
   const tryMove = (from, to) => play(from, to).catch((error) => {
     render5();
     showError2(error);
   });
-  get("variation-prev").addEventListener("click", () => visit(node2.parent));
-  get("variation-next").addEventListener("click", () => visit(trail.get(node2) || node2.children[0]));
+  get("variation-prev").addEventListener("click", () => visit(node3.parent));
+  get("variation-next").addEventListener("click", () => visit(trail.get(node3) || node3.children[0]));
   get("variation-reset").addEventListener("click", () => visit(origin2));
   saveButton.addEventListener("click", async () => {
     saveButton.disabled = true;
     try {
-      await save(nodeMoves(node2));
+      await save(nodeMoves(node3));
       render5();
     } catch (error) {
       showError2(error);
@@ -6815,7 +7479,7 @@ function setupVariations(get, choosePromotion2, showError2) {
     root = moveTree(doc2);
     const main = doc2.moves.slice(0, cursor);
     origin2 = main.reduce((parent, san) => parent.children.find((child) => child.san === san), root);
-    node2 = origin2;
+    node3 = origin2;
     orientation = doc2.orientation || "white";
     save = options.save;
     canSave = options.canSave || (() => false);
@@ -7035,6 +7699,14 @@ var LocalStore = class {
       }
     });
     return added;
+  }
+  updateStudy(id, changes) {
+    return this.tx("readwrite", (store2) => {
+      const request = store2.get(id);
+      request.onsuccess = () => {
+        if (request.result?.role) store2.put({ ...request.result, ...changes });
+      };
+    });
   }
   saveStudy(study, gameKey) {
     return this.tx("readwrite", (store2) => {
@@ -7509,17 +8181,17 @@ function action(id, fn) {
 }
 action("explore-game", () => exploreGame());
 action("update-app", async () => {
-  const button = $2("update-app");
+  const button2 = $2("update-app");
   const report = (message) => {
     $2("update-status").textContent = message;
   };
-  button.disabled = true;
+  button2.disabled = true;
   try {
     await updateApp(registration, initialWorker, flushSave, report);
   } catch (error) {
     report(error.message);
   } finally {
-    button.disabled = false;
+    button2.disabled = false;
   }
 });
 setupLichessStudies($2, store, updateLibrary);
@@ -7660,8 +8332,11 @@ var openStudy = setupStudy({
     navigator.storage?.persist?.().catch(() => {
     });
   },
+  updateSaved: (id, changes) => store.updateStudy(id, changes),
   showError,
-  openPractice
+  openPractice,
+  choosePromotion,
+  startRevenge
 });
 $2("library-studies").addEventListener("click", (event) => {
   const id = event.target.closest("[data-study]")?.dataset.study;
@@ -7805,9 +8480,25 @@ async function botMove() {
     bot.thinking = false;
   }
 }
+var revenge;
+function startRevenge(event, closeStudy) {
+  revenge = { event, closeStudy };
+  $2("bot-color").value = event.color;
+  $2("bot-color").disabled = true;
+  $2("bot-time").value = "0";
+  $2("bot-start").textContent = "Empezar Revancha";
+  $2("bot-dialog").showModal();
+}
+$2("bot-dialog").addEventListener("close", () => {
+  revenge = void 0;
+  $2("bot-color").disabled = false;
+  $2("bot-start").textContent = "\xA1Empezar Partida!";
+});
 action("play-bot-open", () => $2("bot-dialog").showModal());
 action("bot-start", async () => {
-  if (doc.moves.length && !confirm("Empezar una partida nueva sustituir\xE1 la sesi\xF3n actual. \xBFContinuar?")) return;
+  const prepared = revenge;
+  if ((doc.moves.length || doc.notes) && !confirm("Empezar sustituir\xE1 la sesi\xF3n actual. \xBFContinuar?")) return;
+  const initial2 = prepared ? validateEngineFen(prepared.event.fen) : void 0;
   await engine.init();
   const human = $2("bot-color").value === "b" ? "b" : "w", seconds = Number($2("bot-time").value) || 0;
   endBot();
@@ -7818,9 +8509,14 @@ action("bot-start", async () => {
   doc = newDocument();
   doc.orientation = human === "w" ? "white" : "black";
   doc.title = "Partida vs Piol\xEDn (nivel " + ({ 1: 1, 5: 2, 10: 3, 15: 4, 20: 5 }[bot.skill] || 3) + ")";
+  if (prepared) {
+    doc.initialFen = initial2;
+    doc.title = ("Revancha \xB7 " + prepared.event.game).slice(0, 200);
+  }
   bot.active = true;
-  $2("mode-badge").textContent = "VS M\xC1QUINA";
+  $2("mode-badge").textContent = prepared ? "REVANCHA" : "VS M\xC1QUINA";
   $2("bot-dialog").close();
+  prepared?.closeStudy();
   clearInterval(bot.clock);
   if (bot.timed) bot.clock = setInterval(() => {
     if (!bot.active) return;
